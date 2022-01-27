@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Var.JS
 ```
 Easy, Powerful, and Simple FrameWork for Web.
@@ -58,6 +57,3 @@ lunch :  eat
 dinner :  eat
 ```
 ## Version 1
-=======
-# VAR
->>>>>>> e87d8c410066fd27b7e803bf49590edae9639ced
