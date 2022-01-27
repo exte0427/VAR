@@ -38,17 +38,26 @@ const VarInternal=new function(){
     this.init=(varHTML,varList,key,value)=>{
         //in varHTML, find <variable>
         const num=varHTML.findIndex(element=>element==key);
-
         if(num!=-1){
-            if(Array.isArray(value.data)){
-                varList[num].innerHTML="";
-                value.data.forEach(element=>varList[num].innerHTML+=value.render);
+            if(value.render!=""){
+                if(Array.isArray(value.data)){
+                    varList[num].innerHTML="";
+                    value.data.forEach(element=>varList[num].innerHTML+=value.render);
+                }
+                else
+                    varList[num].innerHTML=value.render;
             }
-            else
-                varList[num].innerHTML=value.data;
-            
+            else{
+                if(Array.isArray(value.data)){
+                    varList[num].innerHTML="";
+                    value.data.forEach(element=>varList[num].innerHTML+=element);
+                }
+                else
+                    varList[num].innerHTML=value.data;
+            }
             //new
             const newHtml=varList[num].children;
+            console.log(varList[num],value.data,value.render);
             for(let i=0;i<newHtml.length;i++){
 
                 //set
@@ -57,17 +66,24 @@ const VarInternal=new function(){
 
                 if(myVarList.length!=0){
                     myVarHtml.forEach(element=>{
-
+                        
                         // if this.element
                         const regex= new RegExp("this.*");
                         if(regex.test(element)){
                             const realName=element.replace("this.","");
-                            this.init(myVarHtml,myVarList,element,{data:value.data[i][realName]});
+                            if(realName=="data"){
+                                if(Array.isArray(value.data))
+                                    this.init(myVarHtml,myVarList,element,{data:value.data[i],render:""});
+                                else
+                                    this.init(myVarHtml,myVarList,element,{data:value.data,render:""});
+                            }
+                            else
+                                this.init(myVarHtml,myVarList,element,{data:value.data[i][realName],render:""});
                         }
 
                         //common variable
                         else
-                            this.init(myVarHtml,myVarList,element,{data:dataStorge[element]});
+                            this.init(myVarHtml,myVarList,element,{data:dataStorge[element],render:""});
                     });
                 }
             } 
