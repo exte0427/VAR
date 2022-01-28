@@ -1,3 +1,6 @@
+<span style="color:red">**Do not use Var.JS**, it's so unstable.    
+if you want to use it. star this project. and wait for disappearing of this message</span>
+
 # Var.JS
 ```
 Easy, Powerful, and Simple FrameWork for Web.
@@ -9,17 +12,19 @@ Easy, Powerful, and Simple FrameWork for Web.
 + Fast and Light
 
 ## How to Load
-it's simple. one thing that you have to do is just load Var.js before your scripts.
+load Var.js before your scripts.    
+and use `<load>` to load your scripts.  
+`<load>src<load>`
 ```html
 <script type="text/javascript" src="./var.js"></script>
-<script type="text/javascript" src="./script.js"></script>
+<load>script.js</load>
 ```
 
 ## How to Use
 1. make sure your variable is in **var tag**
 ```html
 <body>
-    <var>myVariable</var>
+    [myVariable]
 </body>
 ```
 2. set the variable, but don't **declare it**
@@ -56,4 +61,4 @@ breakfast : eat
 lunch :  eat
 dinner :  eat
 ```
-## Version 1.05
+## Version 1.1
