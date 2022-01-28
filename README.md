@@ -1,7 +1,8 @@
-<span style="color:red">**Do not use Var.JS**, it's so unstable.    
-if you want to use it. star this project. and wait for disappearing of this message</span>
+**Do not use Var.JS**, it's so unstable.    
+if you want to use it. star this project. and wait for disappearing of this message
 
-# Var.JS
+<img src="https://ifh.cc/g/6OipzO.png"  width="140" height="51">
+
 ```
 Easy, Powerful, and Simple FrameWork for Web.
 ```
