@@ -33,7 +33,7 @@ myVariable = "hello there";
 render can assist displaying the variables
 ```js
 myVariable = "hello there";
-myVariable.render = `<strong><var>this.data</var></strong>`;
+Var.render(myVariable,`<strong><var>this.data</var></strong>`);
 ```
 the result of this code will be  
 **hello there**         
@@ -47,7 +47,7 @@ let todo=[
     {name:"lunch",des:"eat"},
     {name:"dinner",des:"eat"},
 ];
-element.render = `<div><var>this.name</var> :  <var>this.des</var></div>`;
+Var.render(element,`<div><var>this.name</var> :  <var>this.des</var></div>`);
 element = todo;
 ```
 this is great example. it will be work like
@@ -56,4 +56,4 @@ breakfast : eat
 lunch :  eat
 dinner :  eat
 ```
-## Version 1
+## Version 1.05

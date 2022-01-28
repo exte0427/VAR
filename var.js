@@ -1,6 +1,9 @@
 //setting useful func
-const Var = ()=>{
-
+const Var = new function(){
+    this.render=(element,renderTex)=>{
+        const nowName=VarInternal.varToString({element});
+        dataStorge[nowName]={data:VarInternal.findData(nowName),render:renderTex};
+    }
 }
 
 //internal func
@@ -35,7 +38,33 @@ const VarInternal=new function(){
         return varHTML;
     }
 
+    this.dataAnalyzer=(element,value)=>{
+        //varriable , array
+        let nowData=value.data;
+        if(Array.isArray(value.data))
+            nowData=nowData[i];
+
+        // if this.element
+        let retunringData=undefined;
+        const regex= new RegExp("this.*");
+
+        if(regex.test(element)){
+            const realName=element.replace("this.","");
+            if(realName=="data")
+                retunringData=nowData
+            else
+                retunringData=nowData[realName];
+        }
+
+        //common variable
+        else
+            retunringData=dataStorge[element];
+
+        return retunringData;
+    }
+
     this.init=(varHTML,varList,key,value)=>{
+
         //in varHTML, find <variable>
         const num=varHTML.findIndex(element=>element==key);
         if(num!=-1){
@@ -57,7 +86,6 @@ const VarInternal=new function(){
             }
             //new
             const newHtml=varList[num].children;
-            console.log(varList[num],value.data,value.render);
             for(let i=0;i<newHtml.length;i++){
 
                 //set
@@ -66,29 +94,19 @@ const VarInternal=new function(){
 
                 if(myVarList.length!=0){
                     myVarHtml.forEach(element=>{
-                        
-                        // if this.element
-                        const regex= new RegExp("this.*");
-                        if(regex.test(element)){
-                            const realName=element.replace("this.","");
-                            if(realName=="data"){
-                                if(Array.isArray(value.data))
-                                    this.init(myVarHtml,myVarList,element,{data:value.data[i],render:""});
-                                else
-                                    this.init(myVarHtml,myVarList,element,{data:value.data,render:""});
-                            }
-                            else
-                                this.init(myVarHtml,myVarList,element,{data:value.data[i][realName],render:""});
-                        }
+                        const data=this.dataAnalyzer(element,value);
+                        const dataForm= {data:data,render:""};
 
-                        //common variable
-                        else
-                            this.init(myVarHtml,myVarList,element,{data:dataStorge[element],render:""});
+                        this.init(myVarHtml,myVarList,element,dataForm);
                     });
                 }
             } 
         }
+        else
+            console.warn(`there's no ${key} variable in html script`);
     }
+    this.findData = name => dataStorge[name]==undefined ? undefined : dataStorge[name].data;
+    this.varToString = varObj => Object.keys(varObj)[0];
 };
 
 //starting work
@@ -110,17 +128,14 @@ for(let i=0;i<varHTML.length;i++){
     const nowName=varHTML[i];
     dataStorge[nowName]={data:undefined,render:""};
 
+    //gearing variables and dataStorge
     Object.defineProperty(this,nowName,{
+        configurable: true,
         get(){
-            return dataStorge[nowName];
+            return dataStorge[nowName].data;
         },
         set(newValue){
-            //render
-            if(newValue.render)
-                dataStorge[nowName]={data:dataStorge[nowName].data,render:newValue.render};
-            //data
-            else
-                dataStorge[nowName]={data:newValue,render:dataStorge[nowName].render};
+            dataStorge[nowName]={data:newValue,render:dataStorge[nowName].render};
         },
     });
 }
