@@ -13,16 +13,24 @@ const VarInternal=new function(){
     this.parser = new DOMParser();
     this.getVar=(doc)=>{
         
-        //changing varList var->variable
+        //get value
         const varList=doc.querySelectorAll("variable");
+
+        //returning data
+        return varList;
+    }
+
+    this.setVar=(doc)=>{
+
+        //get value
+        const varList=this.getVar(doc);
+
+        //changing varList var->variable
         for(let i=0;i<varList.length;i++){
             const element=varList[i];
             if(element.dataset.variable==undefined)
                 element.dataset.variable=element.innerHTML;
         }
-
-        //returning data
-        return varList;
     }
 
     this.getName=(VarList)=>{
@@ -45,13 +53,93 @@ const VarInternal=new function(){
             return this.htmlProcess(value.render);
     }
 
+    this.findPropVarLoad=(doc)=>{
+        const propVar=[];
+
+        //finding its prop
+        if(doc.attributes!=undefined){
+            for(let i=0;i<doc.attributes.length;i++){
+
+                const regexp = new RegExp(/\[.*\]/g);
+                const containVar=regexp.exec(doc.attributes[i].value);
+
+                if(containVar!=null){
+                    //find [ var ] and get var
+                    const varName=containVar[0].replace("[","").replace("]","");
+                    const firstTex=doc.attributes[i].value.replace(`[${varName}]`,`__variable__`);
+
+                    //firstTex is changed in setVarProp
+                    propVar.push({
+                        element:doc,
+                        varName:varName,
+                        firstTex:firstTex,
+                        attrTex:doc.attributes[i].name,
+                    });
+                }
+            }
+        }
+
+        //fiding childs prop
+        for(let i=0;i<doc.children.length;i++){
+            const childPropVar=this.findPropVar(doc.children[i]);
+
+            for(let j=0;j<childPropVar.length;j++)
+                propVar.push(childPropVar[j]);
+        }
+        
+        return propVar;
+    }
+
+    this.findPropVar=(doc)=>{
+        let data=this.findPropVarLoad(doc);
+        if(data.length>0)
+            return data;
+        else{
+            data = doc.querySelectorAll("[data-prop-variable]");
+            const returningData=[];
+
+            for(let i=0;i<data.length;i++){
+                const nowData=data[i];
+
+                returningData.push({
+                    element:nowData,
+                    varName:nowData.dataset.propVariable,
+                    firstTex:nowData.dataset.firstTex,
+                    attrTex:nowData.dataset.attrTex
+                });
+            }
+
+            return returningData;
+        }
+    }
+
+    this.setVarProp=(doc)=>{
+        const propVar=this.findPropVar(doc);
+
+        for(let i=0;i<propVar.length;i++){
+            const nowData=propVar[i];
+            if(nowData.element.dataset.propVariable==undefined){
+                nowData.element.dataset.propVariable=nowData.varName.replace(" ","");
+                nowData.element.dataset.firstTex=nowData.firstTex;
+                nowData.element.dataset.attrTex=nowData.attrTex;
+                //nowData.element.getAttribute("onclick").value = nowData.firstTex.replace(`[${nowData.varName}]`,`__variable__`);
+            }
+        }
+    }
+
     // [ -> <variable> , ] -> </variable>
     this.htmlProcess=html=>{
         if(typeof html != `string`)
             return html;
 
-        const returnHtml=html.replaceAll("[","<variable>").replaceAll("]","</variable>");
+        const dataHtml=this.parser.parseFromString(html,`text/html`).getElementsByTagName("body")[0];
 
+        //set prop variable
+        this.setVarProp(dataHtml);
+
+        html=dataHtml.innerHTML;
+
+        const returnHtml=html.replaceAll("[","<variable>").replaceAll("]","</variable>");
         return returnHtml;
     }
 
@@ -61,6 +149,8 @@ const VarInternal=new function(){
         //parse data
         const dataHtml=this.parser.parseFromString(this.htmlProcess(myData),`text/html`).getElementsByTagName("body")[0];
         const variables=this.getVar(dataHtml);
+        VarInternal.setVarProp(document);
+        VarInternal.setVar(document);
 
         if(dataHtml.innerHTML==myData)
             return myData;
@@ -92,8 +182,21 @@ const VarInternal=new function(){
         }
     }
 
+    this.initProp=(varPropList,key,value)=>{
+        if(value.data!=undefined){
+
+            //replace old data to new data
+            for(let i=0;i<varPropList.length;i++){
+                const nowData=varPropList[i];
+                console.log(nowData.element.dataset.attrTex,nowData.element.dataset.firstTex.replace(`__variable__`,value.data));
+                if(nowData.element.dataset.propVariable==key)
+                    nowData.element.setAttribute(nowData.element.dataset.attrTex,nowData.element.dataset.firstTex.replace(`__variable__`,value.data));
+            }
+
+        }
+    }
+
     this.detectVar=(nowName,data)=>{
-        console.log(nowName)
         dataStorge[nowName]={data:data,render:""};
 
         //gearing variables and dataStorge
@@ -117,13 +220,20 @@ window.addEventListener("load", function(event) {
 
     //starting work
     varList=VarInternal.getVar(document);
+    VarInternal.setVar(document);
+    VarInternal.setVarProp(document);
 
     //start changing string to certain value
     dataStorge = new Proxy({}, {
         set: function (target, key, value) {
             //init
             varList=VarInternal.getVar(document);
+            varPropList=VarInternal.findPropVar(document);
+            VarInternal.setVar(document);
+            VarInternal.setVarProp(document);
+
             VarInternal.init(varList,key,value);
+            VarInternal.initProp(varPropList,key,value);
 
             //apply value changing
             target[key] = value;
