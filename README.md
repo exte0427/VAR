@@ -1,6 +1,6 @@
 **Do not use Var.JS**, it's so unstable.    
-if you want to use it. star this project. and wait for disappearing of this message
-
+Next Update will be.. `fixing data storge system bug`   
+    
 <img src="https://ifh.cc/g/6OipzO.png"  width="140" height="51">
 
 ```
@@ -62,4 +62,3 @@ breakfast : eat
 lunch :  eat
 dinner :  eat
 ```
-## Version 1.1
