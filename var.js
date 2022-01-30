@@ -1,17 +1,25 @@
 //setting useful func
 const Var = new function(){
-
     this.data = new function(){
+
+        let savedData = [];
+        let nowTagNum = 0;
+
         class SaveData{
 
-            tag;
             element;
             dataList;
+            tagNum;
+            tag;
 
             constructor(element){
                 this.element=element;
                 this.dataList=[];
+                this.tagNum=nowTagNum;
                 this.tag=undefined;
+
+                nowTagNum++;
+                element.dataset.Var=this.tagNum;
             }
 
             set(key,data){
@@ -30,16 +38,18 @@ const Var = new function(){
                     return myData.data;
             }
 
+            getElement(){
+                return this.element;
+            }
+
             setTag(tagName){
                 this.tag=tagName;
             }
 
         }
 
-        let savedData = [];
-
-        this.set=(element,key,value)=>{
-            let thisNum = savedData.findIndex(obj=>obj.element==element);
+        this.set=(myTagNum,element,key,value)=>{
+            let thisNum = savedData.findIndex(obj=>obj.tagNum==myTagNum);
 
             if(thisNum==-1){
                 savedData.push(new SaveData(element));
@@ -49,23 +59,33 @@ const Var = new function(){
             savedData[thisNum].set(key,value);
         }
 
-        this.setTag=(element,tagName)=>{
-            savedData.find(obj=>obj.element==element).setTag(tagName);
+        this.setTag=(myTagNum,tagName)=>{
+            savedData.find(obj=>obj.tagNum==myTagNum).setTag(tagName);
         }
 
-        this.get=(element,key)=>{
-            const thisObj = savedData.find(obj=>obj.element==element);
+        this.get=(myTagNum,key)=>{
+            const thisObj = savedData.find(obj=>obj.tagNum==myTagNum);
             if(thisObj==null)
                 return undefined;
             else
                 return thisObj.get(key);
         }
 
-        this.filter=(func)=>{
+        this.tagFilter=(myTag)=>{
+            const returningData=[];
+            savedData.forEach(element=>{
+                if(element.tag==myTag)
+                    returningData.push(element.getElement());
+            });
+
+            return returningData;
+        }
+
+        this.elementFilter=(myEle)=>{
             const returningData=[];
             savedData.some(element=>{
-                if(func(element.tag))
-                    returningData.push(element.element);
+                if(element.element==myEle)
+                    returningData.push(element.tagNum);
             });
 
             return returningData;
@@ -73,6 +93,11 @@ const Var = new function(){
 
         this.debugSave=()=>{
             return savedData;
+        }
+
+        this.getElement=(myTagNum)=>{
+            const thisObj = savedData.find(obj=>obj.tagNum==myTagNum);
+            return thisObj.getElement();
         }
     }
 
@@ -104,8 +129,8 @@ const VarInternal=new function(){
         //changing varList var->variable
         for(let i=0;i<varList.length;i++){
             const element=varList[i];
-            if(Var.data.get(element,`variable`)==undefined)
-                Var.data.set(element,`variable`,element.innerHTML);
+            if(Var.data.get(element.dataset.Var,`variable`)==undefined)
+                Var.data.set(element.dataset.Var,element,`variable`,element.innerHTML);
         }
     }
 
@@ -131,38 +156,42 @@ const VarInternal=new function(){
 
     this.findPropVarLoad=(doc)=>{
         const propVar=[];
+        if(doc!=document){
+            const tagNum=doc.dataset.Var;
+            
+            if(Var.data.get(tagNum,`propVariable`)==undefined){
+                //finding its prop
+                if(doc.attributes!=undefined){
+                    for(let i=0;i<doc.attributes.length;i++){
 
-        if(Var.data.get(doc,`propVariable`)==undefined){
-            //finding its prop
-            if(doc.attributes!=undefined){
-                for(let i=0;i<doc.attributes.length;i++){
+                        const regexp = new RegExp(/\[.*\]/g);
+                        const containVar=regexp.exec(doc.attributes[i].value);
 
-                    const regexp = new RegExp(/\[.*\]/g);
-                    const containVar=regexp.exec(doc.attributes[i].value);
+                        if(containVar!=null){
+                            //find [ var ] and get var
+                            const varName=containVar[0].replace("[","").replace("]","");
+                            const firstTex=doc.attributes[i].value.replace(`[${varName}]`,`__variable__`);
 
-                    if(containVar!=null){
-                        //find [ var ] and get var
-                        const varName=containVar[0].replace("[","").replace("]","");
-                        const firstTex=doc.attributes[i].value.replace(`[${varName}]`,`__variable__`);
-
-                        //firstTex is changed in setVarProp
-                        propVar.push({
-                            element:doc,
-                            varName:varName,
-                            firstTex:firstTex,
-                            attrTex:doc.attributes[i].name,
-                        });
+                            //firstTex is changed in setVarProp
+                            propVar.push({
+                                element:doc,
+                                tagNum:tagNum,
+                                varName:varName,
+                                firstTex:firstTex,
+                                attrTex:doc.attributes[i].name,
+                            });
+                        }
                     }
                 }
             }
+        }
 
-            //fiding childs prop
-            for(let i=0;i<doc.children.length;i++){
-                const childPropVar=this.findPropVarLoad(doc.children[i]);
+        //fiding childs prop
+        for(let i=0;i<doc.children.length;i++){
+            const childPropVar=this.findPropVarLoad(doc.children[i]);
 
-                for(let j=0;j<childPropVar.length;j++)
-                    propVar.push(childPropVar[j]);
-            }
+            for(let j=0;j<childPropVar.length;j++)
+                propVar.push(childPropVar[j]);
         }
         
         return propVar;
@@ -174,17 +203,20 @@ const VarInternal=new function(){
         if(data.length>0)
             return data;
         else{
-            data =  Var.data.filter(tag=>tag==`attrStr`);
+            data =  Var.data.tagFilter(`attrStr`);
             const returningData=[];
 
             for(let i=0;i<data.length;i++){
+
                 const nowData=data[i];
+                const tagNum=nowData.dataset.Var;
 
                 returningData.push({
                     element:nowData,
-                    varName:Var.data.get(nowData,`propVariable`),
-                    firstTex:Var.data.get(nowData,`firstTex`),
-                    attrTex:Var.data.get(nowData,`attrTex`),
+                    tagNum:tagNum,
+                    varName:Var.data.get(tagNum,`propVariable`),
+                    firstTex:Var.data.get(tagNum,`firstTex`),
+                    attrTex:Var.data.get(tagNum,`attrTex`),
                 });
             }
 
@@ -194,18 +226,23 @@ const VarInternal=new function(){
 
     this.setVarProp=(doc)=>{
         const propVar=this.findPropVar(doc);
-
+        
         for(let i=0;i<propVar.length;i++){
+
             const nowData=propVar[i];
+            const element=nowData.element;
 
             //add
-            if(Var.data.get(nowData.element,`propVariable`)==undefined){
-                Var.data.set(nowData.element,`propVariable`,nowData.varName.replace(" ",""));
-                Var.data.set(nowData.element,`firstTex`,nowData.firstTex);
-                Var.data.set(nowData.element,`attrTex`,nowData.attrTex);
+            if(Var.data.get(nowData.tagNum,element,`propVariable`)==undefined){
+                Var.data.set(nowData.tagNum,element,`newData`,true);
+                const myTagNum=Var.data.elementFilter(element)[0];
+                
+                Var.data.set(myTagNum,element,`propVariable`,nowData.varName.replace(" ",""));
+                Var.data.set(myTagNum,element,`firstTex`,nowData.firstTex);
+                Var.data.set(myTagNum,element,`attrTex`,nowData.attrTex);
 
                 //set tag
-                Var.data.setTag(nowData.element,`attrStr`);
+                Var.data.setTag(myTagNum,`attrStr`);
             }
         }
     }
@@ -239,7 +276,8 @@ const VarInternal=new function(){
             return myData;
 
         for(let i=0;i<variables.length;i++){
-            const varName=Var.data.get(variables[i],`variable`);
+            const tagNum=variables[i].dataset.Var;
+            const varName=Var.data.get(tagNum,`variable`);
             const varVal=window[varName];
 
             //change
@@ -258,9 +296,9 @@ const VarInternal=new function(){
 
             //replace old data to new data
             for(let i=0;i<varList.length;i++){
-                element=varList[i];
-                if(Var.data.get(element,`variable`)==key)
-                    element.innerHTML=myData;
+                const tagNum=varList[i].dataset.Var;
+                if(Var.data.get(tagNum,`variable`)==key)
+                    varList[i].innerHTML=myData;
             }
         }
     }
@@ -270,11 +308,12 @@ const VarInternal=new function(){
 
             //replace old data to new data
             for(let i=0;i<varPropList.length;i++){
-                const nowData=varPropList[i];
 
-                if(Var.data.get(nowData.element,`propVariable`)==key){
-                    console.log("sadge")
-                    nowData.element.setAttribute(Var.data.get(nowData.element,`attrTex`),Var.data.get(nowData.element,`firstTex`).replace(`__variable__`,value.data));
+                const nowData=varPropList[i];
+                const tagNum=nowData.tagNum;
+
+                if(Var.data.get(tagNum,`propVariable`)==key){
+                    document.querySelectorAll(`[data--var*="${tagNum}"]`)[0].setAttribute(Var.data.get(tagNum,`attrTex`),Var.data.get(tagNum,`firstTex`).replace(`__variable__`,value.data));
                 }
             }
 
@@ -327,7 +366,7 @@ window.addEventListener("load", function(event) {
     });
 
     for(let i=0;i<varList.length;i++){
-        const nowName= Var.data.get(varList[i],`variable`);
+        const nowName= Var.data.get(varList[i].dataset.Var,`variable`);
         VarInternal.detectVar(nowName);
     }
 });
