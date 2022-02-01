@@ -5,6 +5,32 @@ namespace Var{
         let savedData:Array<SaveData> = [];
         let nowTagNum:number = 0;
 
+        export class varForm{
+            public data: any;
+            public render: string;
+
+            constructor(value_: any, render_: string) {
+                this.data = value_;
+                this.render = render_;
+            }
+        }
+
+        export class attrForm{
+            public element: HTMLElement;
+            public tagNum: number;
+            public varName: string;
+            public firstTex: string;
+            public attrTex: string;
+
+            constructor(element_: HTMLElement, tagNum_: number, varName_: string, firstTex_: string, attrTex_: string) {
+                this.element = element_;
+                this.tagNum = tagNum_;
+                this.varName = varName_;
+                this.firstTex = firstTex_;
+                this.attrTex = attrTex_;
+            }
+        }
+
         export class dataForm{
             public key: string;
             public data: string;
@@ -104,10 +130,15 @@ namespace Var{
 
             return returningData;
         }
+
+        export const getByTagNum = (tagNum: number): SaveData => {
+            return savedData[tagNum];
+        }
+
     }
 
     export const render = (name: string, renderTex: string): void=> {
-        VarInternal.dataStorge[name]={data:VarInternal.findData(name),render:renderTex};
+        VarInternal.dataStorge[name]=new Var.data.dataForm(VarInternal.findData(name),renderTex);
     }
 }
 
@@ -161,61 +192,62 @@ namespace VarInternal {
         });
     }
 
-    this.getName=(VarList)=>{
+    export const getName = (VarList: Array<HTMLElement>): Array<string> => {
         //getting variable names
-        let varHTML=[];
-        for(let i=0;i<VarList.length;i++)
+        const varHTML: Array<string> = [];
+        for (let i = 0; i < VarList.length; i++)
             varHTML.push(VarList[i].innerHTML);
         
         //returning data
         return varHTML;
     }
 
-    this.valueProcess=value=>{
+    export const valueProcess=(value: Var.data.varForm): string => {
         //if no renderer just return data
-        if(value.render=="")
-            return this.htmlProcess(value.data);
+        if (value.render == "")
+            return VarInternal.htmlProcess(value.data);
 
         //if it has renderer, return renderer
         else
-            return this.htmlProcess(value.render);
+            return VarInternal.htmlProcess(value.render);
     }
 
-    this.findPropVarLoad=(doc)=>{
-        const propVar=[];
-        if(doc!=document){
-            const tagNum=doc.dataset.Var;
+    export const findKids = (doc: HTMLElement): Array<HTMLElement> => {
+        return [...doc.children].map(element => (<HTMLElement>element));
+    }
+
+    export const findPropVarLoad=(doc: HTMLElement): Array<Var.data.attrForm> => {
+        const propVar: Array<Var.data.attrForm> = [];
+        const tagNum: number = Number(doc.dataset.Var);
             
-            if(Var.data.get(tagNum,`propVariable`)==undefined){
-                //finding its prop
-                if(doc.attributes!=undefined){
-                    for(let i=0;i<doc.attributes.length;i++){
+        if(Var.data.get(tagNum,`propVariable`) == undefined){
+            //finding its prop
+            if(doc.attributes != undefined){
+                for(let i=0;i<doc.attributes.length;i++){
 
-                        const regexp = new RegExp(/\[.*\]/g);
-                        const containVar=regexp.exec(doc.attributes[i].value);
+                    const regexp: RegExp = new RegExp(/\[.*\]/g);
+                    const containVar: null|RegExpExecArray = regexp.exec(doc.attributes[i].value);
 
-                        if(containVar!=null){
-                            //find [ var ] and get var
-                            const varName=containVar[0].replace("[","").replace("]","");
-                            const firstTex=doc.attributes[i].value.replace(`[${varName}]`,`__variable__`);
+                    if (containVar != null) {
+                        
+                        //find [ var ] and get var
+                        const varName: string = containVar[0].replace("[","").replace("]","");
+                        const firstTex: string = doc.attributes[i].value.replace(`[${varName}]`, `__variable__`);
+                        const attrTex = doc.attributes[i].name;
+                        const myData = new Var.data.attrForm(doc,tagNum,varName,firstTex,attrTex);
 
-                            //firstTex is changed in setVarProp
-                            propVar.push({
-                                element:doc,
-                                tagNum:tagNum,
-                                varName:varName,
-                                firstTex:firstTex,
-                                attrTex:doc.attributes[i].name,
-                            });
-                        }
+                        //firstTex is changed in setVarProp
+                        propVar.push(myData);
                     }
                 }
             }
         }
 
         //fiding childs prop
-        for(let i=0;i<doc.children.length;i++){
-            const childPropVar=this.findPropVarLoad(doc.children[i]);
+        const myKids: Array<HTMLElement> = VarInternal.findKids(doc);
+
+        for (let i = 0; i < myKids.length; i++){
+            const childPropVar: Array<Var.data.attrForm> = VarInternal.findPropVarLoad(myKids[i]);
 
             for(let j=0;j<childPropVar.length;j++)
                 propVar.push(childPropVar[j]);
@@ -224,27 +256,31 @@ namespace VarInternal {
         return propVar;
     }
 
-    this.findPropVar=(doc)=>{
-        let data=this.findPropVarLoad(doc);
+    export const findPropVar = (doc: HTMLElement): Array<Var.data.attrForm> => {
+        let data: Array<Var.data.attrForm> = VarInternal.findPropVarLoad(doc);
 
-        if(data.length>0)
+        //data exist
+        if(data.length > 0)
             return data;
         else{
-            data =  Var.data.tagFilter(`attrStr`);
-            const returningData=[];
+            const attrEle: Array<number> =  Var.data.tagFilter(`attrStr`);
+            const returningData: Array<Var.data.attrForm> = [];
 
-            for(let i=0;i<data.length;i++){
+            for(let i=0;i<attrEle.length;i++){
 
-                const nowData=data[i];
-                const tagNum=nowData.dataset.Var;
+                const nowDataNum: number = attrEle[i];
+                const nowData: Var.data.SaveData = Var.data.getByTagNum(nowDataNum);
+                const tagNum: number = nowData.tagNum;
 
-                returningData.push({
-                    element:nowData,
-                    tagNum:tagNum,
-                    varName:Var.data.get(tagNum,`propVariable`),
-                    firstTex:Var.data.get(tagNum,`firstTex`),
-                    attrTex:Var.data.get(tagNum,`attrTex`),
-                });
+                const resultData: Var.data.attrForm = new Var.data.attrForm(
+                    nowData.element,
+                    tagNum,
+                    Var.data.get(tagNum, `propVariable`),
+                    Var.data.get(tagNum, `firstTex`),
+                    Var.data.get(tagNum,`attrTex`),
+                );
+
+                returningData.push(resultData);
             }
 
             return returningData;
