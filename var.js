@@ -98,7 +98,7 @@ var Var;
                 return false;
             }
             else {
-                const keyValue = thisObj.existData(key);
+                const keyValue = thisObj.exist(key);
                 return keyValue;
             }
         };
@@ -118,13 +118,42 @@ var Var;
         };
     })(data = Var.data || (Var.data = {}));
     Var.render = (name, renderTex) => {
-        VarInternal.dataStorge[name] = new Var.data.dataForm(VarInternal.findData(name), renderTex);
+        VarInternal.setStorge(name, new VarInternal.VariableData(VarInternal.getStorge(name).data, renderTex));
     };
 })(Var || (Var = {}));
 //internal func
 var VarInternal;
 (function (VarInternal) {
     VarInternal.parser = new DOMParser();
+    class VariableData {
+        constructor(render_, data_) {
+            this.render = render_;
+            this.data = data_;
+        }
+    }
+    VarInternal.VariableData = VariableData;
+    VarInternal.dataStorge = new Proxy({}, {
+        set: (target, key, value) => {
+            const nowHtml = VarInternal.getHtml();
+            //init
+            const varList = VarInternal.getVar(nowHtml);
+            const varPropList = VarInternal.findPropVar(nowHtml);
+            VarInternal.setVar(nowHtml);
+            VarInternal.setVarProp(nowHtml);
+            VarInternal.init(varList, new Var.data.dataForm(key, value));
+            VarInternal.initProp(varPropList, new Var.data.dataForm(key, value));
+            //apply value changing
+            target[key] = value;
+            return true;
+        }
+    });
+    VarInternal.getStorge = (key) => {
+        const value = VarInternal.dataStorge[key].value;
+        return new VarInternal.VariableData(value.render, value.data);
+    };
+    VarInternal.setStorge = (key, data) => {
+        VarInternal.dataStorge[key] = { data: data.data, render: data.render };
+    };
     VarInternal.getVarValue = (name) => {
         return window[name];
     };
@@ -134,14 +163,6 @@ var VarInternal;
             console.error(`page is not loaded`);
         return htmlDom;
     };
-    class VariableData {
-        constructor(key_, data_) {
-            this.key = key_;
-            this.data = data_;
-        }
-    }
-    VarInternal.VariableData = VariableData;
-    VarInternal.dataStroge = [];
     VarInternal.findTagNum = (element) => {
         const myTagNum = element.dataset.Var;
         if (myTagNum === undefined) {
@@ -289,67 +310,59 @@ var VarInternal;
     //in varList, replace all the value to key value ---------------------------------------------------------------------hold
     VarInternal.init = (varList, value) => {
         if (value.data != "") {
-            let myData = VarInternal.valueProcess(new Var.data.varForm(value.data, VarInternal.dataStroge[value.key].render));
-            myData = VarInternal.change(myData);
+            const myRender = VarInternal.valueProcess(new Var.data.varForm(value.data, VarInternal.getStorge(value.key).render));
+            const compiledData = VarInternal.change(myRender);
             //replace old data to new data
             for (let i = 0; i < varList.length; i++) {
-                const tagNum = varList[i].dataset.Var;
-                if (Var.data.get(tagNum, `variable`) == key)
-                    varList[i].innerHTML = myData;
+                const tagNum = Number(varList[i].dataset.Var);
+                if (Var.data.get(tagNum, `variable`) == value.key)
+                    varList[i].innerHTML = compiledData;
             }
         }
     };
-    this.initProp = (varPropList, key, value) => {
-        if (value.data != undefined) {
+    VarInternal.initProp = (varPropList, value) => {
+        if (value.data != "") {
             //replace old data to new data
             for (let i = 0; i < varPropList.length; i++) {
                 const nowData = varPropList[i];
                 const tagNum = nowData.tagNum;
-                if (Var.data.get(tagNum, `propVariable`) == key) {
-                    document.querySelectorAll(`[data--var*="${tagNum}"]`)[0].setAttribute(Var.data.get(tagNum, `attrTex`), Var.data.get(tagNum, `firstTex`).replace(`__variable__`, value.data));
+                const changedTex = Var.data.get(tagNum, `firstTex`).replace(`__variable__`, value.data);
+                const attrName = Var.data.get(tagNum, `attrTex`);
+                if (Var.data.get(tagNum, `propVariable`) == value.key) {
+                    document.querySelectorAll(`[data--var*="${tagNum}"]`)[0].setAttribute(attrName, changedTex);
                 }
             }
         }
     };
-    this.detectVar = (nowName, data) => {
-        dataStorge[nowName] = { data: data, render: "" };
+    VarInternal.detectVar = (value) => {
+        VarInternal.setStorge(value.key, new VarInternal.VariableData("", value.data));
         //gearing variables and dataStorge
-        Object.defineProperty(window, nowName, {
+        Object.defineProperty(window, value.key, {
             configurable: true,
             get() {
-                return dataStorge[nowName].data;
+                return VarInternal.getStorge(value.key).data;
             },
             set(newValue) {
-                dataStorge[nowName] = { data: newValue, render: dataStorge[nowName].render };
+                const myRender = VarInternal.getStorge(value.key).render;
+                VarInternal.setStorge(value.key, new VarInternal.VariableData(myRender, newValue));
             },
         });
     };
 })(VarInternal || (VarInternal = {}));
 ;
 //start
-window.addEventListener("load", function (event) {
-    let htmlTex = document.getElementsByTagName("html")[0].innerHTML;
-    document.getElementsByTagName("html")[0].innerHTML = VarInternal.htmlProcess(htmlTex);
+window.addEventListener(`load`, () => {
+    const htmlTex = VarInternal.getHtml().innerHTML;
+    document.getElementsByTagName(`html`)[0].innerHTML = VarInternal.htmlProcess(htmlTex);
+    const nowHtml = VarInternal.getHtml();
     //starting work
-    varList = VarInternal.getVar(document);
-    VarInternal.setVar(document);
-    VarInternal.setVarProp(document);
+    const varList = VarInternal.getVar(nowHtml);
+    VarInternal.setVar(nowHtml);
+    VarInternal.setVarProp(nowHtml);
     //start changing string to certain value
-    dataStorge = new Proxy({}, {
-        set: function (target, key, value) {
-            //init
-            varList = VarInternal.getVar(document);
-            varPropList = VarInternal.findPropVar(document);
-            VarInternal.setVar(document);
-            VarInternal.setVarProp(document);
-            VarInternal.init(varList, key, value);
-            VarInternal.initProp(varPropList, key, value);
-            //apply value changing
-            target[key] = value;
-        }
-    });
     for (let i = 0; i < varList.length; i++) {
-        const nowName = Var.data.get(varList[i].dataset.Var, `variable`);
-        VarInternal.detectVar(nowName);
+        const tagNum = Number(varList[i].dataset.Var);
+        const nowName = Var.data.get(tagNum, `variable`);
+        VarInternal.detectVar(new Var.data.dataForm(nowName, ""));
     }
 });
