@@ -1,25 +1,25 @@
-namespace parser {
+export namespace parser {
     export class virtualState{
-        type: string;
-        value: any;
+        attributeName: string;
+        value: string;
 
-        constructor(type_: string, value_: any) {
-            this.type = type_;
+        constructor(attributeName_: string, value_:string) {
+            this.attributeName = attributeName_;
             this.value = value_;
         }
     }
 
-    export class virtualDom {
-        text: string;
-        type: string;
-        state: Array<virtualState>;
-        children: Array<virtualDom>;
+    export class virtualDom{
+        tagName: string;
+        attributesList: Array<virtualState>;
+        childList: Array<virtualDom>;
+        value: string;
 
-        constructor(type_: string, state_: Array<virtualState>, children_: Array<virtualDom>,text_:string) {
-            this.text = text_;
-            this.type = type_;
-            this.state = state_;
-            this.children = children_;
+        constructor(tagName_: string, attributesList_: Array<virtualState>, childList_: Array<virtualDom>, value_: string) {
+            this.tagName = tagName_;
+            this.attributesList = attributesList_;
+            this.childList = childList_;
+            this.value = value_;
         }
     }
 
@@ -37,77 +37,41 @@ namespace parser {
         return returningStates;
     }
 
-    export const parseElement = (element: HTMLElement|Element): virtualDom => {
-        const tagName: string = element.tagName;
-        const attributes: Array<virtualState> = parseAttributes(element.attributes);
-        const children: Array<virtualDom> = [];
-        const text: string = element.innerHTML;
+    export const parse = (element: HTMLElement|ChildNode|Element): virtualDom => {
+        let tagName: string = ``;
+        let attributes: Array<virtualState> = [];
+        let children: Array<virtualDom> = [];
+        let text: string = ``;
+
+        if (element instanceof HTMLElement || element instanceof Element) {
+            tagName = element.tagName.toLowerCase();
+            attributes = parseAttributes(element.attributes);
+            text = element.innerHTML;
+
+            let nowNum: number = 0;
         
-        for (let i = 0; i < element.children.length; i++)
-            children.push(parseElement(element.children[i]));
+            for (let i = 0; i < element.childNodes.length; i++) {
+                let parsedData: virtualDom | undefined = undefined;
+                
+                if (element.childNodes[i].nodeName == `#text`){
+                    if ((<string>element.childNodes[i].nodeValue).replaceAll(`\n`, ``).replaceAll(` `, ``) != ``) {
+                        parsedData = parse(element.childNodes[i]);
+                    }
+                }
+                else {
+                    parsedData = parse(element.children[nowNum]);
+                    nowNum++;
+                }
+                
+                if(parsedData!=undefined)
+                    children.push(parsedData);
+            }
+        }
+        else {
+            tagName = `text`;
+            text = (<string>element.nodeValue).replaceAll(`\n`, ``).replaceAll(` `, ``);
+        }
         
         return new virtualDom(tagName,attributes,children,text);
-    }
-
-    export const createChild = (dom: virtualDom, target: HTMLElement|Element): void => {
-        const myNode: Node = document.createElement(dom.type);
-        
-        //last dom
-        if (dom.children.length === 0) {
-            const textNode: Node = document.createTextNode(dom.text);
-            myNode.appendChild(textNode);
-        }        
-        
-        target.appendChild(myNode);
-        dom.children.map(element => createChild(element, target.children[0]));
-        
-    }
-
-    export const renderAttributes = (lastProps: Array<virtualState>,changedProps: Array<virtualState>,target: HTMLElement): void => {
-        changedProps.forEach((element: virtualState) => {
-            const lastData: virtualState|undefined = lastProps.find(prop=>prop.type===element.type);
-            const changedData: virtualState = element;
-
-            //add new data
-            if (lastData == undefined)
-                target.setAttribute(changedData.type, changedData.value);
-            
-            //change data
-            else if (lastData.value !== changedData.value)
-                target.setAttribute(changedData.type, changedData.value);
-            
-        });
-
-        lastProps.forEach((element: virtualState) => {
-            const lastData: virtualState = element;
-            const changedData: virtualState|undefined = changedProps.find(prop=>prop.type===element.type);
-
-            //delete data
-            if (changedData == undefined)
-                target.removeAttribute(lastData.type);
-        });
-    }
-
-    export const render = (lastDom: virtualDom, changedDom: virtualDom, target: HTMLElement): void => {
-
-        //delete
-        if (changedDom == undefined) {
-            target.parentElement?.removeChild(target);
-        }
-
-        //add
-        if (lastDom == undefined) {
-            createChild(changedDom,<HTMLElement>target.parentElement);
-        }
-
-        //same tag
-        if (lastDom.type === changedDom.type) {
-            renderAttributes(lastDom.state,changedDom.state,target);
-        }
-
-        //different tag
-        if (lastDom.type !== changedDom.type) {
-            createChild(changedDom,<HTMLElement>target.parentElement);
-        }
     }
 }
