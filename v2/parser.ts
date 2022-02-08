@@ -27,6 +27,19 @@ export namespace parser {
         return <HTMLElement>document.querySelector(`html`);
     }
 
+    export const parseText = (text: string): string => {
+        let isStart: boolean = false;
+        let newTex: string = ``;
+        for (let i = 0; i < text.length; i++){
+            const nowChar:string = <string>text.at(i);
+            if (nowChar !== `\n` && nowChar !== ` `)
+                isStart = true;
+            
+            if (isStart)
+                newTex += nowChar;
+        }
+    }
+
     export const parseAttributes = (attributes: NamedNodeMap): Array<virtualState> => {
         const returningStates: Array<virtualState> = [];
         for (let i = 0; i < attributes.length; i++){
