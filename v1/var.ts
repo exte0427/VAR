@@ -1,4 +1,4 @@
-//setting useful func
+/*/setting useful func
 namespace Var{
     export namespace data{
 
@@ -485,3 +485,4 @@ window.addEventListener(`load`, () => {
         VarInternal.detectVar(new Var.data.dataForm(nowName,""));
     }
 });
+*/
