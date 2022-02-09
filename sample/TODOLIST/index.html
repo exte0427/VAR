@@ -11,11 +11,13 @@
     <string class="wer">cat</string>
     hug 
     <a></a>
+    <b></b>
 
     <script type="text/javascript" src="../../v2/parser.js"></script>
     <script type="text/javascript">
-        let a=13;
-        Var.make(()=>a);
+        let a=13,b=213;
+        Var.make(`a`,()=>a);
+        Var.make(`b`,()=>b);
     </script>
 </body>
 </html>

@@ -114,6 +114,7 @@ var VarInternal;
     })(parser = VarInternal.parser || (VarInternal.parser = {}));
     let main;
     (function (main) {
+        main.firstData = undefined;
         main.lastData = undefined;
         main.nowData = undefined;
         main.init = () => {
@@ -124,11 +125,12 @@ var VarInternal;
         main.detectStart = (time) => {
             setInterval(() => {
                 //set now data
-                main.nowData = detecter.subVar(main.firstData);
+                main.nowData = detecter.subVar({ ...main.firstData });
                 //detect start
-                detecter.detect(parser.getHtml(), main.lastData, main.nowData);
+                detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[0], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[0], 0);
+                detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[1], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[1], 1);
                 //set last data
-                main.lastData = main.firstData;
+                main.lastData = main.nowData;
             }, time);
         };
     })(main = VarInternal.main || (VarInternal.main = {}));
@@ -167,8 +169,9 @@ var VarInternal;
     let detecter;
     (function (detecter) {
         detecter.subVar = (target) => {
+            let newValue = target;
             // if variable dom
-            const nowData = data.varList.find(element => element.key === target.tagName);
+            const nowData = data.varList.find(element => element.key === newValue.tagName);
             if (nowData != undefined) {
                 const data = nowData.getData();
                 if (data instanceof parser.virtualDom)
@@ -177,27 +180,24 @@ var VarInternal;
                     return parser.texToDom(data);
             }
             // if last dom
-            else if (target.childList.length == 0)
-                return target;
-            let newValue = target;
+            else if (newValue.childList.length == 0)
+                return newValue;
             //else discover children
-            target.childList.forEach((element, index) => {
-                target.childList[index] = detecter.subVar(element);
-            });
-            return newValue;
+            const childNode = newValue.childList.map(element => detecter.subVar(element));
+            return new parser.virtualDom(newValue.tagName, newValue.attributesList, childNode, newValue.value);
         };
-        detecter.detect = (target, lastData, nowData) => {
+        detecter.detect = (parent, lastData, nowData, index) => {
             if (lastData === undefined)
-                changer.add(target, nowData);
+                changer.add(parent, nowData);
             else if (nowData === undefined)
                 changer.del(lastData);
             else if (lastData.tagName !== nowData.tagName)
-                changer.change(target, lastData, nowData);
+                changer.change(parent, lastData, nowData);
             else if (lastData.attributesList !== nowData.attributesList)
-                changer.attrChange(target, lastData.attributesList, nowData.attributesList);
+                changer.attrChange(parent.childNodes[index], lastData.attributesList, nowData.attributesList);
             const maxLength = Math.max(lastData === null || lastData === void 0 ? void 0 : lastData.childList.length, nowData === null || nowData === void 0 ? void 0 : nowData.childList.length);
             for (let i = 0; i < maxLength; i++) {
-                detecter.detect(target.childNodes[i], lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i]);
+                detecter.detect(parent === null || parent === void 0 ? void 0 : parent.childNodes[index], lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i);
             }
         };
     })(detecter = VarInternal.detecter || (VarInternal.detecter = {}));
