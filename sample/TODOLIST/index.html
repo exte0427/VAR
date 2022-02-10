@@ -16,7 +16,7 @@
     <script type="text/javascript" src="../../v2/parser.js"></script>
     <script type="text/javascript">
         let a=13,b=213;
-        Var.make(`a`,()=>a);
+        Var.make(`a`,()=>new VarInternal.parser.virtualDom("div",[],[new VarInternal.parser.virtualDom("text",[],[],a)],``));
         Var.make(`b`,()=>b);
     </script>
 </body>

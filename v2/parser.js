@@ -12,11 +12,12 @@ var Var;
             this.key = key_;
         }
         getData() {
-            if (this.data instanceof Function) {
-                return this.data().toString();
-            }
+            let returnData;
+            if (this.data instanceof Function)
+                returnData = this.data();
             else
-                return this.data.toString();
+                returnData = this.data;
+            return returnData;
         }
     }
     Var.varForm = varForm;
@@ -93,9 +94,10 @@ var VarInternal;
                 for (let i = 0; i < element.childNodes.length; i++) {
                     let parsedData = undefined;
                     if (element.childNodes[i].nodeName == `#text`) {
-                        if (parser.parseText(element.childNodes[i].nodeValue) !== ``) {
+                        if (parser.parseText(element.childNodes[i].nodeValue) !== ``)
                             parsedData = parser.parse(element.childNodes[i]);
-                        }
+                        else
+                            parsedData = new virtualDom(`text`, [], [], ``);
                     }
                     else {
                         parsedData = parser.parse(element.children[nowNum]);
@@ -126,9 +128,11 @@ var VarInternal;
             setInterval(() => {
                 //set now data
                 main.nowData = detecter.subVar({ ...main.firstData });
-                //detect start
-                detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[0], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[0], 0);
-                detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[1], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[1], 1);
+                const maxData = (main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList.length) > (main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList.length) ? main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList : main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList;
+                if (maxData) {
+                    for (let i = 0; i < maxData.length; i++)
+                        detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[i], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[i], i);
+                }
                 //set last data
                 main.lastData = main.nowData;
             }, time);
@@ -137,27 +141,35 @@ var VarInternal;
     let changer;
     (function (changer) {
         changer.make = (data) => {
-            const myDom = document.createElement(data.tagName);
-            data.attributesList.forEach(element => {
-                myDom.setAttribute(element.attributeName, element.value);
-            });
-            data.childList.forEach(element => {
-                myDom.append(changer.make(element));
-            });
-            return myDom;
+            if (data.tagName == `text`)
+                return document.createTextNode(data.value);
+            else {
+                const myDom = document.createElement(data.tagName);
+                data.attributesList.map(element => {
+                    myDom.setAttribute(element.attributeName, element.value);
+                });
+                data.childList.map(element => {
+                    myDom.append(changer.make(element));
+                });
+                return myDom;
+            }
         };
         changer.add = (parent, data) => {
-            parent.append(changer.make(data));
+            console.log("loladd");
+            parent.appendChild(changer.make(data));
         };
         changer.del = (data) => {
-            changer.make(data).remove();
+            console.log("loldel");
+            data.remove();
         };
-        changer.change = (parent, oldData, newData) => {
-            changer.del(oldData);
+        changer.change = (parent, target, newData) => {
+            console.log("lolchange");
+            changer.del(target);
             changer.add(parent, newData);
         };
         changer.attrChange = (target, lastAttr, nowAttr) => {
-            nowAttr.forEach((element, i) => {
+            //console.log("lolattr");
+            nowAttr.map((element, i) => {
                 var _a;
                 if (lastAttr.find(e => e.attributeName === element.attributeName) == undefined)
                     target.setAttribute(element.attributeName, element.value);
@@ -174,10 +186,14 @@ var VarInternal;
             const nowData = data.varList.find(element => element.key === newValue.tagName);
             if (nowData != undefined) {
                 const data = nowData.getData();
+                let returningData;
                 if (data instanceof parser.virtualDom)
-                    return detecter.subVar(data);
+                    returningData = detecter.subVar(data);
                 else
-                    return parser.texToDom(data);
+                    returningData = parser.texToDom(data);
+                if (!(returningData instanceof Array))
+                    returningData = [returningData];
+                return new parser.virtualDom(target.tagName, target.attributesList, returningData, `none`);
             }
             // if last dom
             else if (newValue.childList.length == 0)
@@ -187,17 +203,26 @@ var VarInternal;
             return new parser.virtualDom(newValue.tagName, newValue.attributesList, childNode, newValue.value);
         };
         detecter.detect = (parent, lastData, nowData, index) => {
-            if (lastData === undefined)
+            const target = (parent.childNodes[index]);
+            if (!lastData && !nowData)
+                console.error(`unexpected error`);
+            else if (!lastData && nowData)
                 changer.add(parent, nowData);
-            else if (nowData === undefined)
-                changer.del(lastData);
-            else if (lastData.tagName !== nowData.tagName)
-                changer.change(parent, lastData, nowData);
-            else if (lastData.attributesList !== nowData.attributesList)
-                changer.attrChange(parent.childNodes[index], lastData.attributesList, nowData.attributesList);
-            const maxLength = Math.max(lastData === null || lastData === void 0 ? void 0 : lastData.childList.length, nowData === null || nowData === void 0 ? void 0 : nowData.childList.length);
-            for (let i = 0; i < maxLength; i++) {
-                detecter.detect(parent === null || parent === void 0 ? void 0 : parent.childNodes[index], lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i);
+            else if (lastData && !nowData) {
+                changer.del(target);
+                return;
+            }
+            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName))
+                changer.change(parent, target, nowData);
+            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value)
+                changer.change(parent, target, nowData);
+            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName))
+                changer.attrChange(target, lastData === null || lastData === void 0 ? void 0 : lastData.attributesList, nowData === null || nowData === void 0 ? void 0 : nowData.attributesList);
+            const maxData = (lastData === null || lastData === void 0 ? void 0 : lastData.childList.length) > (nowData === null || nowData === void 0 ? void 0 : nowData.childList.length) ? lastData === null || lastData === void 0 ? void 0 : lastData.childList : nowData === null || nowData === void 0 ? void 0 : nowData.childList;
+            if (maxData !== undefined) {
+                for (let i = 0; i < maxData.length; i++) {
+                    detecter.detect((parent.childNodes[index]), lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i);
+                }
             }
         };
     })(detecter = VarInternal.detecter || (VarInternal.detecter = {}));

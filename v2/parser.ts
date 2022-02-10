@@ -16,12 +16,14 @@ namespace Var {
             this.key = key_;
         }
 
-        getData(): string {
-            if (this.data instanceof Function) {
-                return this.data().toString();
-            }
+        getData(): string | VarInternal.parser.virtualDom {
+            let returnData: string | VarInternal.parser.virtualDom;
+            if (this.data instanceof Function)
+                returnData = this.data();
             else
-                return this.data.toString();
+                returnData = this.data;
+            
+            return returnData;
         }
     }
 }
@@ -117,9 +119,10 @@ namespace VarInternal{
                     let parsedData: virtualDom | undefined = undefined;
                 
                     if (element.childNodes[i].nodeName == `#text`) {
-                        if (parseText(<string>element.childNodes[i].nodeValue) !== ``) {
+                        if (parseText(<string>element.childNodes[i].nodeValue) !== ``)
                             parsedData = parse(element.childNodes[i]);
-                        }
+                        else
+                            parsedData = new virtualDom(`text`,[],[],``);
                     }
                     else {
                         parsedData = parse(element.children[nowNum]);
@@ -157,9 +160,11 @@ namespace VarInternal{
                 //set now data
                 nowData = detecter.subVar({ ...(<parser.virtualDom>firstData) });
 
-                //detect start
-                detecter.detect(parser.getHtml(), lastData?.childList[0], nowData?.childList[0],0);
-                detecter.detect(parser.getHtml(),lastData?.childList[1],nowData?.childList[1],1);
+                const maxData = <number>lastData?.childList.length > <number>nowData?.childList.length ? lastData?.childList : nowData?.childList;
+                if (maxData) {
+                    for (let i = 0; i < maxData.length;i++)
+                        detecter.detect(parser.getHtml(), lastData?.childList[i], nowData?.childList[i], i);
+                }
 
                 //set last data
                 lastData = nowData;
@@ -169,35 +174,43 @@ namespace VarInternal{
     }
 
     export namespace changer {
-        export const make = (data: parser.virtualDom): HTMLElement => {
-            const myDom: HTMLElement = document.createElement(data.tagName);
+        export const make = (data: parser.virtualDom): HTMLElement|Text => {
+            if (data.tagName == `text`)
+                return document.createTextNode(data.value);
+            else {
+                const myDom: HTMLElement = document.createElement(data.tagName);
 
-            data.attributesList.forEach(element => {
-                myDom.setAttribute(element.attributeName,element.value); 
-            });
+                data.attributesList.map(element => {
+                    myDom.setAttribute(element.attributeName, element.value);
+                });
 
-            data.childList.forEach(element => {
-                myDom.append(make(element)); 
-            });
+                data.childList.map(element => {
+                    myDom.append(make(element));
+                });
 
-            return myDom;
+                return myDom;
+            }
         }
 
         export const add = (parent: HTMLElement, data: parser.virtualDom): void => {
-            parent.append(make(data));
+            console.log("loladd");
+            parent.appendChild(make(data));
         }
 
-        export const del = (data: parser.virtualDom): void => {
-            make(data).remove();
+        export const del = (data: HTMLElement): void => {
+            console.log("loldel");
+            data.remove();
         }
 
-        export const change = (parent: HTMLElement, oldData: parser.virtualDom, newData: parser.virtualDom): void => {
-            del(oldData);
+        export const change = (parent: HTMLElement, target: HTMLElement, newData: parser.virtualDom): void => {
+            console.log("lolchange");
+            del(target);
             add(parent, newData);
         }
 
-        export const attrChange = (target: HTMLElement, lastAttr: Array<parser.virtualState>, nowAttr: Array<parser.virtualState>):void => {
-            nowAttr.forEach((element, i) => {
+        export const attrChange = (target: HTMLElement, lastAttr: Array<parser.virtualState>, nowAttr: Array<parser.virtualState>): void => {
+            //console.log("lolattr");
+            nowAttr.map((element, i) => {
                 if (lastAttr.find(e => e.attributeName === element.attributeName) == undefined)
                     target.setAttribute(element.attributeName,element.value);
                 if (element.value !== lastAttr.find(e => e.attributeName === element.attributeName)?.value)
@@ -214,12 +227,18 @@ namespace VarInternal{
             // if variable dom
             const nowData:Var.varForm|undefined = data.varList.find(element => element.key === newValue.tagName);
             if (nowData != undefined) {
-                const data: any = nowData.getData();
+                const data: parser.virtualDom|string = nowData.getData();
+                let returningData: any;
                 
                 if (data instanceof parser.virtualDom)
-                    return subVar(data);
+                    returningData = subVar(data);
                 else
-                    return parser.texToDom(data);
+                    returningData = parser.texToDom(data);
+                
+                if (!(returningData instanceof Array))
+                    returningData = [returningData];
+                
+                return new parser.virtualDom(target.tagName,target.attributesList,returningData,`none`);
             }
             // if last dom
             else if (newValue.childList.length == 0)
@@ -231,21 +250,37 @@ namespace VarInternal{
             return new parser.virtualDom(newValue.tagName, newValue.attributesList,childNode,newValue.value);
         }
 
-        export const detect = (parent: HTMLElement, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined,index:number): void => {
+        export const detect = (parent: HTMLElement, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined, index: number): void => {
+
+            const target: HTMLElement = <HTMLElement>(parent.childNodes[index]);
             
-            if (lastData === undefined)
-                changer.add(parent, <parser.virtualDom>nowData);
-            else if (nowData === undefined)
-                changer.del(<parser.virtualDom>lastData);
-            else if (lastData.tagName !== nowData.tagName)
-                changer.change(parent, lastData, nowData);
-            else if (lastData.attributesList !== nowData.attributesList)
-                changer.attrChange(<HTMLElement>parent.childNodes[index], lastData.attributesList, nowData.attributesList);
+            if (!lastData && !nowData)
+                console.error(`unexpected error`);
+            else if (!lastData && nowData)
+                changer.add(parent, nowData);
             
-            const maxLength: number = Math.max((<number>lastData?.childList.length), (<number>nowData?.childList.length));
-            for (let i = 0; i < maxLength; i++){
-                detect(<HTMLElement>parent?.childNodes[index],lastData?.childList[i],nowData?.childList[i],i);
+            else if (lastData && !nowData) {
+                changer.del(target);
+                return;
             }
+
+            else if (lastData?.tagName !== nowData?.tagName)
+                changer.change(parent, target, <parser.virtualDom>nowData);
+                
+            else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value)
+                changer.change(parent, target, <parser.virtualDom>nowData);
+            
+            else if (lastData?.tagName === nowData?.tagName)
+                changer.attrChange(target, <Array<parser.virtualState>>lastData?.attributesList, <Array<parser.virtualState>>nowData?.attributesList);
+            
+            const maxData:Array<parser.virtualDom>|undefined = <number>(lastData?.childList.length) > <number>(nowData?.childList.length) ? lastData?.childList : nowData?.childList;
+
+            if (maxData!==undefined) {
+                for (let i = 0; i < maxData.length; i++) {
+                    detect(<HTMLElement>(parent.childNodes[index]), lastData?.childList[i], nowData?.childList[i], i);
+                }
+            }
+            
         }
     }
 }
