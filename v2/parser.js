@@ -1,6 +1,15 @@
 "use strict";
 var Var;
 (function (Var) {
+    Var.dom = (tagName, states, ...childNodes) => {
+        return new VarInternal.parser.virtualDom(tagName, states, childNodes.flat(), ``);
+    };
+    Var.text = (value) => {
+        return new VarInternal.parser.virtualDom(`text`, [], [], value);
+    };
+    Var.state = (stateName, stateVal) => {
+        return new VarInternal.parser.virtualState(stateName, stateVal);
+    };
     Var.make = (key, data) => {
         const newVar = new Var.varForm(key, data);
         //set data
@@ -119,6 +128,7 @@ var VarInternal;
         main.firstData = undefined;
         main.lastData = undefined;
         main.nowData = undefined;
+        main.delList = [];
         main.init = () => {
             main.firstData = parser.parse(parser.getHtml());
             main.nowData = main.firstData;
@@ -133,6 +143,8 @@ var VarInternal;
                     for (let i = 0; i < maxData.length; i++)
                         detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[i], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[i], i);
                 }
+                main.delList.map(element => changer.del(element));
+                main.delList = [];
                 //set last data
                 main.lastData = main.nowData;
             }, time);
@@ -148,28 +160,23 @@ var VarInternal;
                 data.attributesList.map(element => {
                     myDom.setAttribute(element.attributeName, element.value);
                 });
-                data.childList.map(element => {
-                    myDom.append(changer.make(element));
-                });
+                /*data.childList.map(element => {
+                    myDom.append(make(element));
+                });*/
                 return myDom;
             }
         };
         changer.add = (parent, data) => {
-            console.log("loladd");
             parent.appendChild(changer.make(data));
         };
         changer.del = (data) => {
-            console.log("loldel");
             data.remove();
         };
         changer.change = (parent, target, newData) => {
-            console.log("lolchange");
-            changer.del(target);
-            changer.add(parent, newData);
+            parent.replaceChild(changer.make(newData), target);
         };
         changer.attrChange = (target, lastAttr, nowAttr) => {
-            //console.log("lolattr");
-            nowAttr.map((element, i) => {
+            nowAttr.map((element) => {
                 var _a;
                 if (lastAttr.find(e => e.attributeName === element.attributeName) == undefined)
                     target.setAttribute(element.attributeName, element.value);
@@ -209,14 +216,15 @@ var VarInternal;
             else if (!lastData && nowData)
                 changer.add(parent, nowData);
             else if (lastData && !nowData) {
-                changer.del(target);
+                main.delList.push(target);
                 return;
             }
-            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName))
+            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName)) {
                 changer.change(parent, target, nowData);
+            }
             else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value)
                 changer.change(parent, target, nowData);
-            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName))
+            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) && (lastData === null || lastData === void 0 ? void 0 : lastData.tagName) != `text`)
                 changer.attrChange(target, lastData === null || lastData === void 0 ? void 0 : lastData.attributesList, nowData === null || nowData === void 0 ? void 0 : nowData.attributesList);
             const maxData = (lastData === null || lastData === void 0 ? void 0 : lastData.childList.length) > (nowData === null || nowData === void 0 ? void 0 : nowData.childList.length) ? lastData === null || lastData === void 0 ? void 0 : lastData.childList : nowData === null || nowData === void 0 ? void 0 : nowData.childList;
             if (maxData !== undefined) {

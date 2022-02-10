@@ -1,5 +1,17 @@
 namespace Var {
 
+    export const dom = (tagName: string, states: Array<VarInternal.parser.virtualState>, ...childNodes: Array<VarInternal.parser.virtualDom>):VarInternal.parser.virtualDom => {
+        return new VarInternal.parser.virtualDom(tagName, states, childNodes.flat(),``);
+    }
+
+    export const text = (value: string) => {
+        return new VarInternal.parser.virtualDom(`text`,[],[],value);
+    }
+
+    export const state = (stateName: string, stateVal: any):VarInternal.parser.virtualState => {
+        return new VarInternal.parser.virtualState(stateName, stateVal);
+    }
+
     export const make = (key:string,data: any): void => {
         const newVar = new Var.varForm(key,data);
 
@@ -147,6 +159,8 @@ namespace VarInternal{
         export let lastData: parser.virtualDom | undefined = undefined;
         export let nowData: parser.virtualDom | undefined = undefined;
 
+        export let delList: Array<HTMLElement> = [];
+
         export const init = (): void => {
             firstData = parser.parse(parser.getHtml());
 
@@ -166,6 +180,9 @@ namespace VarInternal{
                         detecter.detect(parser.getHtml(), lastData?.childList[i], nowData?.childList[i], i);
                 }
 
+                delList.map(element => changer.del(element));
+                delList = [];
+
                 //set last data
                 lastData = nowData;
 
@@ -184,33 +201,28 @@ namespace VarInternal{
                     myDom.setAttribute(element.attributeName, element.value);
                 });
 
-                data.childList.map(element => {
+                /*data.childList.map(element => {
                     myDom.append(make(element));
-                });
+                });*/
 
                 return myDom;
             }
         }
 
         export const add = (parent: HTMLElement, data: parser.virtualDom): void => {
-            console.log("loladd");
             parent.appendChild(make(data));
         }
 
         export const del = (data: HTMLElement): void => {
-            console.log("loldel");
             data.remove();
         }
 
         export const change = (parent: HTMLElement, target: HTMLElement, newData: parser.virtualDom): void => {
-            console.log("lolchange");
-            del(target);
-            add(parent, newData);
+            parent.replaceChild(make(newData),target);
         }
 
         export const attrChange = (target: HTMLElement, lastAttr: Array<parser.virtualState>, nowAttr: Array<parser.virtualState>): void => {
-            //console.log("lolattr");
-            nowAttr.map((element, i) => {
+            nowAttr.map((element) => {
                 if (lastAttr.find(e => e.attributeName === element.attributeName) == undefined)
                     target.setAttribute(element.attributeName,element.value);
                 if (element.value !== lastAttr.find(e => e.attributeName === element.attributeName)?.value)
@@ -260,17 +272,18 @@ namespace VarInternal{
                 changer.add(parent, nowData);
             
             else if (lastData && !nowData) {
-                changer.del(target);
+                main.delList.push(target);
                 return;
             }
 
-            else if (lastData?.tagName !== nowData?.tagName)
+            else if (lastData?.tagName !== nowData?.tagName) {
                 changer.change(parent, target, <parser.virtualDom>nowData);
+            }
                 
             else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value)
                 changer.change(parent, target, <parser.virtualDom>nowData);
             
-            else if (lastData?.tagName === nowData?.tagName)
+            else if (lastData?.tagName === nowData?.tagName && lastData?.tagName != `text`)
                 changer.attrChange(target, <Array<parser.virtualState>>lastData?.attributesList, <Array<parser.virtualState>>nowData?.attributesList);
             
             const maxData:Array<parser.virtualDom>|undefined = <number>(lastData?.childList.length) > <number>(nowData?.childList.length) ? lastData?.childList : nowData?.childList;

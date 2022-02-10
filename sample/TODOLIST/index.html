@@ -4,20 +4,66 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>TODOLIST</title>
+
+    <style>
+        html,body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 <body>
-    dog
-    <string class="wer">cat</string>
-    hug 
-    <a></a>
-    <b></b>
+    <div style="text-align: center">
+        <div style="display:inline-block">
+            <div>
+                <strong style="font-size:50px">TODOLIST</strong>
+            </div>
+            <div style="display: inline_block;width: 300px;height:500px;outline: 2px dashed blue;">
+                <todoapp></todoapp>
+            </div>
+            <button onclick="addTodo()">add</button>
+        </div>
+    </div>
+
 
     <script type="text/javascript" src="../../v2/parser.js"></script>
     <script type="text/javascript">
-        let a=13,b=213;
-        Var.make(`a`,()=>new VarInternal.parser.virtualDom("div",[],[new VarInternal.parser.virtualDom("text",[],[],a)],``));
-        Var.make(`b`,()=>b);
+        const todoList=[];
+
+        const addTodo = () =>{
+            const name = prompt(`name`);
+            const des = prompt(`des`);
+
+            todoList.push({name:name,des:des,id:(todoList.length-1)});
+        }
+
+        const deleteElement = (id) => {
+            todoList.splice(todoList.findIndex(element=>element.id === id),1);
+        }
+
+        const makeElement = ({name,des,id})=>{
+            return Var.dom(`div`,[],
+                Var.dom(`strong`,[],
+                    Var.text(name)
+                ),
+                Var.text(` `),
+                Var.text(des),
+                Var.dom(`button`,[Var.state(`onclick`,`deleteElement(${id})`)],
+                    Var.text(`delete`)
+                ),
+            );
+        }
+
+        Var.make(`todoapp`,()=>{
+            let returnVal=[];
+            todoList.map(element=>{
+                returnVal.push(makeElement(element));
+            });
+
+            return Var.dom(`div`,[],returnVal);
+        });
     </script>
 </body>
 </html>
