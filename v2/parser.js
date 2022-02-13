@@ -20,10 +20,10 @@ var Var;
             this.data = data_;
             this.key = key_;
         }
-        getData() {
+        getData(...args) {
             let returnData;
             if (this.data instanceof Function)
-                returnData = this.data();
+                returnData = this.data(...args);
             else
                 returnData = this.data;
             return returnData;
@@ -91,9 +91,9 @@ var VarInternal;
             return returningStates;
         };
         parser.parse = (element) => {
+            const children = [];
             let tagName = ``;
             let attributes = [];
-            let children = [];
             let text = ``;
             if (element instanceof HTMLElement || element instanceof Element) {
                 tagName = element.tagName.toLowerCase();
@@ -105,8 +105,6 @@ var VarInternal;
                     if (element.childNodes[i].nodeName == `#text`) {
                         if (parser.parseText(element.childNodes[i].nodeValue) !== ``)
                             parsedData = parser.parse(element.childNodes[i]);
-                        else
-                            parsedData = new virtualDom(`text`, [], [], ``);
                     }
                     else {
                         parsedData = parser.parse(element.children[nowNum]);
@@ -123,6 +121,68 @@ var VarInternal;
             return new virtualDom(tagName, attributes, children, text);
         };
     })(parser = VarInternal.parser || (VarInternal.parser = {}));
+    let template;
+    (function (template) {
+        template.calcVar = (oldText) => {
+            let newText = ``;
+            const startVar = [];
+            for (let i = 0; i < oldText.length; i++) {
+                const nowChar = oldText.charAt(i);
+                const nextChar = oldText.charAt(i + 1);
+                if (nowChar === `<` && nextChar === `-`)
+                    startVar.push(i);
+                if (nowChar === `-` && nextChar === `>`) {
+                    const startNum = startVar[startVar.length - 1];
+                    const endNum = i + 1;
+                    const varName = oldText.slice(startNum, endNum + 1);
+                    startVar.pop();
+                    newText = newText.slice(0, startNum);
+                    newText += `\${${varName.replace(`<-`, ``).replace(`->`, ``)}}`;
+                    i++;
+                    continue;
+                }
+                newText += nowChar;
+            }
+            return newText;
+        };
+        template.templateMake = (data) => {
+            const name = data.tagName;
+            const stateCodes = data.attributesList.map(state => `Var.state("${state.attributeName}",\`${template.calcVar(state.value)}\`)`);
+            const code = [];
+            data.childList.map(element => {
+                const childData = template.templateMake(element);
+                code.push(childData);
+            });
+            if (name === `text`)
+                return `Var.text(\`${template.calcVar(data.value)}\`)`;
+            else
+                return `Var.dom("${name}",[${stateCodes.join(`,`)}],${code.join(`,`)})`;
+        };
+        template.parse = (data) => {
+            if (data.tagName === `var`) {
+                const name = data.attributesList[0].attributeName;
+                const args = data.attributesList.splice(1).map(element => element.attributeName).join(`,`);
+                Var.make(name, new Function(args, `return ${template.templateMake(data)}`));
+            }
+            data.childList.map(element => {
+                template.parse(element);
+            });
+        };
+        template.except = (data) => {
+            if (data.tagName === `var`)
+                return undefined;
+            else {
+                const children = [];
+                data.childList.map(element => {
+                    const nowData = template.except(element);
+                    if (nowData !== undefined)
+                        children.push(nowData);
+                });
+                const newData = new parser.virtualDom(data.tagName, data.attributesList, children, data.value);
+                return newData;
+            }
+        };
+    })(template = VarInternal.template || (VarInternal.template = {}));
     let main;
     (function (main) {
         main.firstData = undefined;
@@ -131,18 +191,16 @@ var VarInternal;
         main.delList = [];
         main.init = () => {
             main.firstData = parser.parse(parser.getHtml());
-            main.nowData = main.firstData;
+            template.parse(main.firstData);
             main.lastData = main.firstData;
+            main.firstData = template.except(main.firstData);
+            main.nowData = main.firstData;
         };
         main.detectStart = (time) => {
             setInterval(() => {
                 //set now data
                 main.nowData = detecter.subVar({ ...main.firstData });
-                const maxData = (main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList.length) > (main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList.length) ? main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList : main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList;
-                if (maxData) {
-                    for (let i = 0; i < maxData.length; i++)
-                        detecter.detect(parser.getHtml(), main.lastData === null || main.lastData === void 0 ? void 0 : main.lastData.childList[i], main.nowData === null || main.nowData === void 0 ? void 0 : main.nowData.childList[i], i);
-                }
+                detecter.detect(document, main.lastData, main.nowData, 1);
                 main.delList.map(element => changer.del(element));
                 main.delList = [];
                 //set last data
@@ -188,11 +246,12 @@ var VarInternal;
     let detecter;
     (function (detecter) {
         detecter.subVar = (target) => {
-            let newValue = target;
+            const newValue = target;
             // if variable dom
             const nowData = data.varList.find(element => element.key === newValue.tagName);
             if (nowData != undefined) {
-                const data = nowData.getData();
+                const attributeValue = newValue.attributesList.filter(data => data.value === ``).map(data => data.attributeName);
+                const data = nowData.getData(...attributeValue);
                 let returningData;
                 if (data instanceof parser.virtualDom)
                     returningData = detecter.subVar(data);
@@ -210,30 +269,43 @@ var VarInternal;
             return new parser.virtualDom(newValue.tagName, newValue.attributesList, childNode, newValue.value);
         };
         detecter.detect = (parent, lastData, nowData, index) => {
-            const target = (parent.childNodes[index]);
-            if (!lastData && !nowData)
-                console.error(`unexpected error`);
-            else if (!lastData && nowData)
-                changer.add(parent, nowData);
-            else if (lastData && !nowData) {
-                main.delList.push(target);
-                return;
+            if (parent instanceof HTMLElement) {
+                const target = (parent.childNodes[index]);
+                if (!lastData && !nowData)
+                    console.error(`unexpected error`);
+                else if (!lastData && nowData)
+                    changer.add(parent, nowData);
+                else if (lastData && !nowData) {
+                    main.delList.push(target);
+                    return;
+                }
+                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName))
+                    changer.change(parent, target, nowData);
+                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value)
+                    changer.change(parent, target, nowData);
+                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) && (lastData === null || lastData === void 0 ? void 0 : lastData.tagName) != `text`)
+                    changer.attrChange(target, lastData === null || lastData === void 0 ? void 0 : lastData.attributesList, nowData === null || nowData === void 0 ? void 0 : nowData.attributesList);
             }
-            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName)) {
-                changer.change(parent, target, nowData);
-            }
-            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value)
-                changer.change(parent, target, nowData);
-            else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) && (lastData === null || lastData === void 0 ? void 0 : lastData.tagName) != `text`)
-                changer.attrChange(target, lastData === null || lastData === void 0 ? void 0 : lastData.attributesList, nowData === null || nowData === void 0 ? void 0 : nowData.attributesList);
             const maxData = (lastData === null || lastData === void 0 ? void 0 : lastData.childList.length) > (nowData === null || nowData === void 0 ? void 0 : nowData.childList.length) ? lastData === null || lastData === void 0 ? void 0 : lastData.childList : nowData === null || nowData === void 0 ? void 0 : nowData.childList;
             if (maxData !== undefined) {
+                let iplus = 0;
                 for (let i = 0; i < maxData.length; i++) {
-                    detecter.detect((parent.childNodes[index]), lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i);
+                    const nowElement = parent.childNodes[index].childNodes[i + iplus];
+                    if (nowElement != undefined) {
+                        if (nowElement.nodeValue != undefined) {
+                            if (parser.parseText(nowElement.nodeValue) === ``) {
+                                iplus++;
+                                i--;
+                                continue;
+                            }
+                        }
+                    }
+                    if (i + iplus < parent.childNodes[index].childNodes.length)
+                        detecter.detect((parent.childNodes[index]), lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i + iplus);
                 }
             }
         };
     })(detecter = VarInternal.detecter || (VarInternal.detecter = {}));
 })(VarInternal || (VarInternal = {}));
 VarInternal.main.init();
-VarInternal.main.detectStart(10);
+VarInternal.main.detectStart(2000);

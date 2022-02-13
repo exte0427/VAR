@@ -23,15 +23,15 @@ namespace Var {
         key: string;
         data: any;
 
-        constructor(key_:string, data_: Function) {
+        constructor(key_:string, data_:any) {
             this.data = data_;
             this.key = key_;
         }
 
-        getData(): string | VarInternal.parser.virtualDom {
+        getData(...args: any[]): string | VarInternal.parser.virtualDom {
             let returnData: string | VarInternal.parser.virtualDom;
             if (this.data instanceof Function)
-                returnData = this.data();
+                returnData = this.data(...args);
             else
                 returnData = this.data;
             
@@ -75,8 +75,8 @@ namespace VarInternal{
         }
 
         export const parseText = (text: string): string => {
-            let startNum: number = -1;
-            let endNum: number = -1;
+            let startNum = -1;
+            let endNum = -1;
 
             for (let i = 0; i < text.length; i++) {
                 const nowChar: string = <string>text[i];
@@ -115,17 +115,18 @@ namespace VarInternal{
         }
 
         export const parse = (element: HTMLElement | ChildNode | Element): virtualDom => {
-            let tagName: string = ``;
+
+            const children: Array<virtualDom> = [];
+            let tagName = ``;
             let attributes: Array<virtualState> = [];
-            let children: Array<virtualDom> = [];
-            let text: string = ``;
+            let text = ``;
 
             if (element instanceof HTMLElement || element instanceof Element) {
                 tagName = element.tagName.toLowerCase();
                 attributes = parseAttributes(element.attributes);
                 text = element.innerHTML;
 
-                let nowNum: number = 0;
+                let nowNum = 0;
         
                 for (let i = 0; i < element.childNodes.length; i++) {
                     let parsedData: virtualDom | undefined = undefined;
@@ -133,8 +134,6 @@ namespace VarInternal{
                     if (element.childNodes[i].nodeName == `#text`) {
                         if (parseText(<string>element.childNodes[i].nodeValue) !== ``)
                             parsedData = parse(element.childNodes[i]);
-                        else
-                            parsedData = new virtualDom(`text`,[],[],``);
                     }
                     else {
                         parsedData = parse(element.children[nowNum]);
@@ -154,6 +153,84 @@ namespace VarInternal{
         }
     }
 
+    export namespace template{
+        export const calcVar = (oldText:string) => {
+            let newText = ``;
+            const startVar: Array<number> = [];
+
+            for (let i = 0; i < oldText.length; i++){
+                const nowChar = oldText.charAt(i);
+                const nextChar = oldText.charAt(i + 1);
+
+                if (nowChar === `<` && nextChar === `-`)
+                    startVar.push(i);
+                    
+                if (nowChar === `-` && nextChar === `>`) {
+                    const startNum = startVar[startVar.length - 1];
+                    const endNum = i+1;
+                    const varName = oldText.slice(startNum, endNum + 1);
+
+                    startVar.pop();
+                    newText = newText.slice(0, startNum);
+                    newText += `\${${varName.replace(`<-`,``).replace(`->`,``)}}`;
+
+                    i++;
+                    continue;
+                }
+                    
+                newText += nowChar;
+            }
+            return newText;
+        }
+
+        export const templateMake = (data: parser.virtualDom): string => {
+
+            const name = data.tagName;
+            const stateCodes = data.attributesList.map(state => `Var.state("${state.attributeName}",\`${calcVar(state.value)}\`)`);
+            const code: Array<string> = [];
+
+            data.childList.map(element => {
+                
+                const childData = templateMake(element);
+                code.push(childData);
+            });
+
+            if (name === `text`)
+                return `Var.text(\`${calcVar(data.value)}\`)`;
+            else
+                return `Var.dom("${name}",[${stateCodes.join(`,`)}],${code.join(`,`)})`;
+        }
+
+        export const parse = (data: parser.virtualDom): void => {
+            if (data.tagName === `var`) {
+                const name = data.attributesList[0].attributeName;
+                const args = data.attributesList.splice(1).map(element=>element.attributeName).join(`,`);
+
+                Var.make(name, new Function(args, `return ${templateMake(data)}`));
+            }
+            
+            data.childList.map(element => {
+                parse(element); 
+            });
+        }
+
+        export const except = (data: parser.virtualDom): parser.virtualDom | undefined => {
+            if (data.tagName === `var`)
+                return undefined;
+            else {
+                const children: Array<parser.virtualDom> = [];
+                data.childList.map(element => {
+                    const nowData = except(element);
+
+                    if (nowData !== undefined)
+                        children.push(nowData);
+                });
+                const newData = new parser.virtualDom(data.tagName,data.attributesList,children,data.value);
+                return newData;
+            }
+        }
+    }
+
     export namespace main{
         export let firstData: parser.virtualDom | undefined = undefined;
         export let lastData: parser.virtualDom | undefined = undefined;
@@ -163,9 +240,11 @@ namespace VarInternal{
 
         export const init = (): void => {
             firstData = parser.parse(parser.getHtml());
+            template.parse(firstData);
 
-            nowData = firstData;
             lastData = firstData;
+            firstData = template.except(firstData);
+            nowData = firstData;
         }
 
         export const detectStart = (time:number): void => {
@@ -174,11 +253,7 @@ namespace VarInternal{
                 //set now data
                 nowData = detecter.subVar({ ...(<parser.virtualDom>firstData) });
 
-                const maxData = <number>lastData?.childList.length > <number>nowData?.childList.length ? lastData?.childList : nowData?.childList;
-                if (maxData) {
-                    for (let i = 0; i < maxData.length;i++)
-                        detecter.detect(parser.getHtml(), lastData?.childList[i], nowData?.childList[i], i);
-                }
+                detecter.detect(document, lastData, nowData, 1);
 
                 delList.map(element => changer.del(element));
                 delList = [];
@@ -234,12 +309,13 @@ namespace VarInternal{
     export namespace detecter{
         export const subVar = (target: parser.virtualDom): parser.virtualDom => {
 
-            let newValue: parser.virtualDom = target;
+            const newValue = target;
             
             // if variable dom
             const nowData:Var.varForm|undefined = data.varList.find(element => element.key === newValue.tagName);
             if (nowData != undefined) {
-                const data: parser.virtualDom|string = nowData.getData();
+                const attributeValue = newValue.attributesList.filter(data => data.value === ``).map(data => data.attributeName);
+                const data: parser.virtualDom|string = nowData.getData(...attributeValue);
                 let returningData: any;
                 
                 if (data instanceof parser.virtualDom)
@@ -262,35 +338,48 @@ namespace VarInternal{
             return new parser.virtualDom(newValue.tagName, newValue.attributesList,childNode,newValue.value);
         }
 
-        export const detect = (parent: HTMLElement, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined, index: number): void => {
-
-            const target: HTMLElement = <HTMLElement>(parent.childNodes[index]);
+        export const detect = (parent: HTMLElement | Document, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined, index: number): void => {
+            if (parent instanceof HTMLElement) {
+                const target: HTMLElement = <HTMLElement>(parent.childNodes[index]);
             
-            if (!lastData && !nowData)
-                console.error(`unexpected error`);
-            else if (!lastData && nowData)
-                changer.add(parent, nowData);
+                if (!lastData && !nowData)
+                    console.error(`unexpected error`);
+                else if (!lastData && nowData)
+                    changer.add(parent, nowData);
             
-            else if (lastData && !nowData) {
-                main.delList.push(target);
-                return;
-            }
+                else if (lastData && !nowData) {
+                    main.delList.push(target);
+                    return;
+                }
 
-            else if (lastData?.tagName !== nowData?.tagName) {
-                changer.change(parent, target, <parser.virtualDom>nowData);
-            }
+                else if (lastData?.tagName !== nowData?.tagName)
+                    changer.change(parent, target, <parser.virtualDom>nowData);
                 
-            else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value)
-                changer.change(parent, target, <parser.virtualDom>nowData);
+                else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value)
+                    changer.change(parent, target, <parser.virtualDom>nowData);
             
-            else if (lastData?.tagName === nowData?.tagName && lastData?.tagName != `text`)
-                changer.attrChange(target, <Array<parser.virtualState>>lastData?.attributesList, <Array<parser.virtualState>>nowData?.attributesList);
-            
+                else if (lastData?.tagName === nowData?.tagName && lastData?.tagName != `text`)
+                    changer.attrChange(target, <Array<parser.virtualState>>lastData?.attributesList, <Array<parser.virtualState>>nowData?.attributesList);
+            }
             const maxData:Array<parser.virtualDom>|undefined = <number>(lastData?.childList.length) > <number>(nowData?.childList.length) ? lastData?.childList : nowData?.childList;
 
-            if (maxData!==undefined) {
+            if (maxData !== undefined) {
+                let iplus = 0;
                 for (let i = 0; i < maxData.length; i++) {
-                    detect(<HTMLElement>(parent.childNodes[index]), lastData?.childList[i], nowData?.childList[i], i);
+                    const nowElement = parent.childNodes[index].childNodes[i+iplus];
+
+                    if (nowElement != undefined) {
+                        if(nowElement.nodeValue != undefined){
+                            if (parser.parseText(<string>nowElement.nodeValue)===``) {
+                                iplus++;
+                                i--;
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    if(i+iplus < parent.childNodes[index].childNodes.length)
+                        detect(<HTMLElement>(parent.childNodes[index]), lastData?.childList[i], nowData?.childList[i], i+iplus);
                 }
             }
             
@@ -299,4 +388,4 @@ namespace VarInternal{
 }
 
 VarInternal.main.init();
-VarInternal.main.detectStart(10);
+VarInternal.main.detectStart(2000);
