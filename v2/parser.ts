@@ -358,11 +358,15 @@ namespace VarInternal{
                     return;
                 }
 
-                else if (lastData?.tagName !== nowData?.tagName)
+                else if (lastData?.tagName !== nowData?.tagName) {
                     changer.change(parent, target, <parser.virtualDom>nowData);
+                    return;
+                }
                 
-                else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value)
+                else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value) {
                     changer.change(parent, target, <parser.virtualDom>nowData);
+                    return;
+                }
             
                 else if (lastData?.tagName === nowData?.tagName && lastData?.tagName != `text`)
                     changer.attrChange(target, <Array<parser.virtualState>>lastData?.attributesList, <Array<parser.virtualState>>nowData?.attributesList);

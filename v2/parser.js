@@ -283,10 +283,14 @@ var VarInternal;
                     main.delList.push(target);
                     return;
                 }
-                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName))
+                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName)) {
                     changer.change(parent, target, nowData);
-                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value)
+                    return;
+                }
+                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value) {
                     changer.change(parent, target, nowData);
+                    return;
+                }
                 else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) && (lastData === null || lastData === void 0 ? void 0 : lastData.tagName) != `text`)
                     changer.attrChange(target, lastData === null || lastData === void 0 ? void 0 : lastData.attributesList, nowData === null || nowData === void 0 ? void 0 : nowData.attributesList);
             }
