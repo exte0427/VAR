@@ -126,22 +126,10 @@ namespace VarInternal{
                 attributes = parseAttributes(element.attributes);
                 text = element.innerHTML;
 
-                let nowNum = 0;
-        
-                for (let i = 0; i < element.childNodes.length; i++) {
-                    let parsedData: virtualDom | undefined = undefined;
-                
-                    if (element.childNodes[i].nodeName == `#text`) {
-                        if (parseText(<string>element.childNodes[i].nodeValue) !== ``)
-                            parsedData = parse(element.childNodes[i]);
-                    }
-                    else {
-                        parsedData = parse(element.children[nowNum]);
-                        nowNum++;
-                    }
-                
-                    if (parsedData != undefined)
-                        children.push(parsedData);
+                const nowChild = html.getChild(element);
+
+                for (let i = 0; i < nowChild.length; i++) {
+                    children.push(parse(nowChild[i]));
                 }
             }
             else if (element != undefined) {
@@ -231,6 +219,20 @@ namespace VarInternal{
         }
     }
 
+    export namespace html{
+        export const getChild = (parent:ChildNode|Document|HTMLElement): Array<ChildNode> => {
+            const childList = [];
+
+            for (let i = 0; i < parent.childNodes.length; i++){
+                const child = parent.childNodes[i];
+                if (child.nodeValue === null || parser.parseText(<string>child.nodeValue) !== ``)
+                    childList.push(child);
+            }
+
+            return childList;
+        }
+    }
+
     export namespace main{
         export let firstData: parser.virtualDom | undefined = undefined;
         export let lastData: parser.virtualDom | undefined = undefined;
@@ -239,6 +241,9 @@ namespace VarInternal{
         export let delList: Array<HTMLElement> = [];
 
         export const init = (): void => {
+            //start
+            console.log(`Var.js`);
+
             firstData = parser.parse(parser.getHtml());
             template.parse(firstData);
 
@@ -310,9 +315,9 @@ namespace VarInternal{
         export const subVar = (target: parser.virtualDom): parser.virtualDom => {
 
             const newValue = target;
-            
             // if variable dom
-            const nowData:Var.varForm|undefined = data.varList.find(element => element.key === newValue.tagName);
+            const nowData: Var.varForm | undefined = data.varList.find(element => element.key === newValue.tagName);
+            
             if (nowData != undefined) {
                 const attributeValue = newValue.attributesList.filter(data => data.value === ``).map(data => data.attributeName);
                 const data: parser.virtualDom|string = nowData.getData(...attributeValue);
@@ -339,9 +344,10 @@ namespace VarInternal{
         }
 
         export const detect = (parent: HTMLElement | Document, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined, index: number): void => {
-            if (parent instanceof HTMLElement) {
-                const target: HTMLElement = <HTMLElement>(parent.childNodes[index]);
             
+            if (parent instanceof HTMLElement) {
+                const target: HTMLElement = <HTMLElement>(html.getChild(parent)[index]);
+                
                 if (!lastData && !nowData)
                     console.error(`unexpected error`);
                 else if (!lastData && nowData)
@@ -364,22 +370,9 @@ namespace VarInternal{
             const maxData:Array<parser.virtualDom>|undefined = <number>(lastData?.childList.length) > <number>(nowData?.childList.length) ? lastData?.childList : nowData?.childList;
 
             if (maxData !== undefined) {
-                let iplus = 0;
                 for (let i = 0; i < maxData.length; i++) {
-                    const nowElement = parent.childNodes[index].childNodes[i+iplus];
-
-                    if (nowElement != undefined) {
-                        if(nowElement.nodeValue != undefined){
-                            if (parser.parseText(<string>nowElement.nodeValue)===``) {
-                                iplus++;
-                                i--;
-                                continue;
-                            }
-                        }
-                    }
-                    
-                    if(i+iplus < parent.childNodes[index].childNodes.length)
-                        detect(<HTMLElement>(parent.childNodes[index]), lastData?.childList[i], nowData?.childList[i], i+iplus);
+                    const nowElement = html.getChild(parent)[index];
+                    detect(<HTMLElement>(nowElement), lastData?.childList[i], nowData?.childList[i], i);
                 }
             }
             

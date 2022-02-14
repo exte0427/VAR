@@ -99,19 +99,9 @@ var VarInternal;
                 tagName = element.tagName.toLowerCase();
                 attributes = parser.parseAttributes(element.attributes);
                 text = element.innerHTML;
-                let nowNum = 0;
-                for (let i = 0; i < element.childNodes.length; i++) {
-                    let parsedData = undefined;
-                    if (element.childNodes[i].nodeName == `#text`) {
-                        if (parser.parseText(element.childNodes[i].nodeValue) !== ``)
-                            parsedData = parser.parse(element.childNodes[i]);
-                    }
-                    else {
-                        parsedData = parser.parse(element.children[nowNum]);
-                        nowNum++;
-                    }
-                    if (parsedData != undefined)
-                        children.push(parsedData);
+                const nowChild = html.getChild(element);
+                for (let i = 0; i < nowChild.length; i++) {
+                    children.push(parser.parse(nowChild[i]));
                 }
             }
             else if (element != undefined) {
@@ -183,6 +173,18 @@ var VarInternal;
             }
         };
     })(template = VarInternal.template || (VarInternal.template = {}));
+    let html;
+    (function (html) {
+        html.getChild = (parent) => {
+            const childList = [];
+            for (let i = 0; i < parent.childNodes.length; i++) {
+                const child = parent.childNodes[i];
+                if (child.nodeValue === null || parser.parseText(child.nodeValue) !== ``)
+                    childList.push(child);
+            }
+            return childList;
+        };
+    })(html = VarInternal.html || (VarInternal.html = {}));
     let main;
     (function (main) {
         main.firstData = undefined;
@@ -190,6 +192,8 @@ var VarInternal;
         main.nowData = undefined;
         main.delList = [];
         main.init = () => {
+            //start
+            console.log(`Var.js`);
             main.firstData = parser.parse(parser.getHtml());
             template.parse(main.firstData);
             main.lastData = main.firstData;
@@ -270,7 +274,7 @@ var VarInternal;
         };
         detecter.detect = (parent, lastData, nowData, index) => {
             if (parent instanceof HTMLElement) {
-                const target = (parent.childNodes[index]);
+                const target = (html.getChild(parent)[index]);
                 if (!lastData && !nowData)
                     console.error(`unexpected error`);
                 else if (!lastData && nowData)
@@ -288,20 +292,9 @@ var VarInternal;
             }
             const maxData = (lastData === null || lastData === void 0 ? void 0 : lastData.childList.length) > (nowData === null || nowData === void 0 ? void 0 : nowData.childList.length) ? lastData === null || lastData === void 0 ? void 0 : lastData.childList : nowData === null || nowData === void 0 ? void 0 : nowData.childList;
             if (maxData !== undefined) {
-                let iplus = 0;
                 for (let i = 0; i < maxData.length; i++) {
-                    const nowElement = parent.childNodes[index].childNodes[i + iplus];
-                    if (nowElement != undefined) {
-                        if (nowElement.nodeValue != undefined) {
-                            if (parser.parseText(nowElement.nodeValue) === ``) {
-                                iplus++;
-                                i--;
-                                continue;
-                            }
-                        }
-                    }
-                    if (i + iplus < parent.childNodes[index].childNodes.length)
-                        detecter.detect((parent.childNodes[index]), lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i + iplus);
+                    const nowElement = html.getChild(parent)[index];
+                    detecter.detect((nowElement), lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i);
                 }
             }
         };
