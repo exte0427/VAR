@@ -1,5 +1,5 @@
 **Do not use Var.JS**, it's so unstable.    
-Next Update will be.. `optimization,bug fixing`   
+Next Update will be.. `뭘 하긴 했는데 성과가 없어서 1일 1커밋 하루 날로먹을꺼임ㅎ`   
     
 <img src="https://ifh.cc/g/6OipzO.png"  width="140" height="51">
 
