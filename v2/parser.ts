@@ -1,11 +1,11 @@
 namespace Var {
 
     export const dom = (tagName: string, states: Array<VarInternal.parser.virtualState>, ...childNodes: Array<VarInternal.parser.virtualDom>):VarInternal.parser.virtualDom => {
-        return new VarInternal.parser.virtualDom(tagName, states, childNodes.flat(),``);
+        return new VarInternal.parser.virtualDom(tagName, states, childNodes.flat(),``,new VarInternal.key.keyForm(-1,-1));
     }
 
     export const text = (value: string) => {
-        return new VarInternal.parser.virtualDom(`text`,[],[],value);
+        return new VarInternal.parser.virtualDom(`text`,[],[],value,new VarInternal.key.keyForm(-1,-1));
     }
 
     export const state = (stateName: string, stateVal: any):VarInternal.parser.virtualState => {
@@ -61,12 +61,14 @@ namespace VarInternal{
             attributesList: Array<virtualState>;
             childList: Array<virtualDom>;
             value: string;
+            key: key.keyForm;
 
-            constructor(tagName_: string, attributesList_: Array<virtualState>, childList_: Array<virtualDom>, value_: string) {
+            constructor(tagName_: string, attributesList_: Array<virtualState>, childList_: Array<virtualDom>, value_: string,key_:key.keyForm) {
                 this.tagName = tagName_;
                 this.attributesList = attributesList_;
                 this.childList = childList_;
                 this.value = value_;
+                this.key = key_;
             }
         }
 
@@ -101,7 +103,7 @@ namespace VarInternal{
         }
 
         export const texToDom = (text: string): virtualDom => {
-            return new virtualDom(`text`,[],[],text);
+            return new virtualDom(`text`,[],[],text,new VarInternal.key.keyForm(-1,-1));
         }
 
         export const parseAttributes = (attributes: NamedNodeMap): Array<virtualState> => {
@@ -137,7 +139,29 @@ namespace VarInternal{
                 text = parseText(<string>element.nodeValue);
             }
         
-            return new virtualDom(tagName, attributes, children, text);
+            return new virtualDom(tagName, attributes, children, text,new VarInternal.key.keyForm(-1,-1));
+        }
+    }
+
+    export namespace key{
+        export class keyForm{
+            myKey: number;
+            lastKey: number;
+
+            constructor(myKey_: number, lastKey_: number) {
+                this.myKey = myKey_;
+                this.lastKey = lastKey_;
+            }
+        }
+
+        export const getElement = (virtualList: Array<parser.virtualDom>, key: number): parser.virtualDom => {
+            const returnData = virtualList.find(element => element.key.myKey === key);
+            if (returnData instanceof parser.virtualDom)
+                return returnData
+            else {
+                console.error(`${key} is not found`);
+                return new parser.virtualDom("",[],[],"",new VarInternal.key.keyForm(-1,-1));
+            }
         }
     }
 
@@ -213,7 +237,7 @@ namespace VarInternal{
                     if (nowData !== undefined)
                         children.push(nowData);
                 });
-                const newData = new parser.virtualDom(data.tagName,data.attributesList,children,data.value);
+                const newData = new parser.virtualDom(data.tagName,data.attributesList,children,data.value,new VarInternal.key.keyForm(-1,-1));
                 return newData;
             }
         }
@@ -331,7 +355,7 @@ namespace VarInternal{
                 if (!(returningData instanceof Array))
                     returningData = [returningData];
                 
-                return new parser.virtualDom(target.tagName,target.attributesList,returningData,`none`);
+                return new parser.virtualDom(target.tagName,target.attributesList,returningData,`none`,new VarInternal.key.keyForm(-1,-1));
             }
             // if last dom
             else if (newValue.childList.length == 0)
@@ -340,7 +364,7 @@ namespace VarInternal{
             //else discover children
             const childNode: Array<parser.virtualDom> = newValue.childList.map(element => subVar(element));
 
-            return new parser.virtualDom(newValue.tagName, newValue.attributesList,childNode,newValue.value);
+            return new parser.virtualDom(newValue.tagName, newValue.attributesList,childNode,newValue.value,new VarInternal.key.keyForm(-1,-1));
         }
 
         export const detect = (parent: HTMLElement | Document, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined, index: number): void => {
