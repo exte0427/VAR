@@ -116,7 +116,7 @@ namespace VarInternal{
             return returningStates;
         }
 
-        export const parse = (element: HTMLElement | ChildNode | Element): virtualDom => {
+        export const parse = (element: HTMLElement | ChildNode | Element, key:number ): virtualDom => {
 
             const children: Array<virtualDom> = [];
             let tagName = ``;
@@ -131,7 +131,7 @@ namespace VarInternal{
                 const nowChild = html.getChild(element);
 
                 for (let i = 0; i < nowChild.length; i++) {
-                    children.push(parse(nowChild[i]));
+                    children.push(parse(nowChild[i],i));
                 }
             }
             else if (element != undefined) {
@@ -139,7 +139,7 @@ namespace VarInternal{
                 text = parseText(<string>element.nodeValue);
             }
         
-            return new virtualDom(tagName, attributes, children, text,new VarInternal.key.keyForm(-1,-1));
+            return new virtualDom(tagName, attributes, children, text,new VarInternal.key.keyForm(key,children.length));
         }
     }
 
@@ -202,9 +202,10 @@ namespace VarInternal{
             const code: Array<string> = [];
 
             data.childList.map(element => {
-                
-                const childData = templateMake(element);
-                code.push(childData);
+                if (element.tagName !== `update`) {
+                    const childData = templateMake(element);
+                    code.push(childData);
+                }
             });
 
             if (name === `text`)
@@ -213,12 +214,25 @@ namespace VarInternal{
                 return `Var.dom("${name}",[${stateCodes.join(`,`)}],${code.join(`,`)})`;
         }
 
+        export const codeMake = (data: parser.virtualDom): string => {
+
+            const code: Array<string> = [];
+
+            data.childList.map(element => {
+                if (element.tagName === `update`) {
+                    code.push(element.value);
+                }
+            });
+
+            return code.join(`;`);
+        }
+
         export const parse = (data: parser.virtualDom): void => {
             if (data.tagName === `var`) {
                 const name = data.attributesList[0].attributeName;
                 const args = data.attributesList.splice(1).map(element=>element.attributeName).join(`,`);
 
-                Var.make(name, new Function(args, `return ${templateMake(data)}`));
+                Var.make(name, new Function(args, `${codeMake(data)};return ${templateMake(data)};`));
             }
             
             data.childList.map(element => {
@@ -237,7 +251,7 @@ namespace VarInternal{
                     if (nowData !== undefined)
                         children.push(nowData);
                 });
-                const newData = new parser.virtualDom(data.tagName,data.attributesList,children,data.value,new VarInternal.key.keyForm(-1,-1));
+                const newData = new parser.virtualDom(data.tagName,data.attributesList,children,data.value,data.key);
                 return newData;
             }
         }
@@ -268,7 +282,7 @@ namespace VarInternal{
             //start
             console.log(`Var.js`);
 
-            firstData = parser.parse(parser.getHtml());
+            firstData = parser.parse(parser.getHtml(),0);
             template.parse(firstData);
 
             lastData = firstData;
@@ -305,9 +319,9 @@ namespace VarInternal{
                     myDom.setAttribute(element.attributeName, element.value);
                 });
 
-                /*data.childList.map(element => {
+                data.childList.map(element => {
                     myDom.append(make(element));
-                });*/
+                });
 
                 return myDom;
             }
@@ -332,6 +346,12 @@ namespace VarInternal{
                 if (element.value !== lastAttr.find(e => e.attributeName === element.attributeName)?.value)
                     target.setAttribute(element.attributeName,element.value);
             });
+
+            //del
+            lastAttr.map(element => {
+                if (nowAttr.find(e => e.attributeName === element.attributeName) == undefined)
+                    target.removeAttribute(element.attributeName);
+            })
         }
     }
 
@@ -364,7 +384,7 @@ namespace VarInternal{
             //else discover children
             const childNode: Array<parser.virtualDom> = newValue.childList.map(element => subVar(element));
 
-            return new parser.virtualDom(newValue.tagName, newValue.attributesList,childNode,newValue.value,new VarInternal.key.keyForm(-1,-1));
+            return new parser.virtualDom(newValue.tagName, newValue.attributesList,childNode,newValue.value,newValue.key);
         }
 
         export const detect = (parent: HTMLElement | Document, lastData: parser.virtualDom | undefined, nowData: parser.virtualDom | undefined, index: number): void => {
@@ -374,8 +394,10 @@ namespace VarInternal{
                 
                 if (!lastData && !nowData)
                     console.error(`unexpected error`);
-                else if (!lastData && nowData)
+                else if (!lastData && nowData) {
                     changer.add(parent, nowData);
+                    return;
+                }
             
                 else if (lastData && !nowData) {
                     main.delList.push(target);
