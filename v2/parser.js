@@ -16,16 +16,24 @@ var Var;
         VarInternal.data.varList.push(newVar);
     };
     class varForm {
-        constructor(key_, data_) {
-            this.data = data_;
+        constructor(key_, update_) {
+            this.update = update_;
             this.key = key_;
         }
-        getData(...args) {
+        getStart(...args) {
             let returnData;
-            if (this.data instanceof Function)
-                returnData = this.data(...args);
+            if (this.start instanceof Function)
+                returnData = this.start(...args);
             else
-                returnData = this.data;
+                returnData = this.start;
+            return returnData;
+        }
+        getUpdate(...args) {
+            let returnData;
+            if (this.update instanceof Function)
+                returnData = this.update(...args);
+            else
+                returnData = this.update;
             return returnData;
         }
     }
@@ -133,6 +141,7 @@ var VarInternal;
     })(key = VarInternal.key || (VarInternal.key = {}));
     let template;
     (function (template) {
+        template.codeList = [`start`, `update`, `onclick`];
         template.calcVar = (oldText) => {
             let newText = ``;
             const startVar = [];
@@ -160,7 +169,7 @@ var VarInternal;
             const stateCodes = data.attributesList.map(state => `Var.state("${state.attributeName}",\`${template.calcVar(state.value)}\`)`);
             const code = [];
             data.childList.map(element => {
-                if (element.tagName !== `update`) {
+                if (template.codeList.find(e => e === element.tagName) === undefined) {
                     const childData = template.templateMake(element);
                     code.push(childData);
                 }
@@ -170,11 +179,14 @@ var VarInternal;
             else
                 return `Var.dom("${name}",[${stateCodes.join(`,`)}],${code.join(`,`)})`;
         };
+        template.codeSet = (code) => {
+            return code.replaceAll(`\``, "\\`");
+        };
         template.codeMake = (data) => {
             const code = [];
             data.childList.map(element => {
-                if (element.tagName === `update`) {
-                    code.push(element.value);
+                if (element.tagName === template.codeList[1]) {
+                    code.push(template.codeSet(element.value));
                 }
             });
             return code.join(`;`);
@@ -270,10 +282,9 @@ var VarInternal;
         };
         changer.attrChange = (target, lastAttr, nowAttr) => {
             nowAttr.map((element) => {
-                var _a;
                 if (lastAttr.find(e => e.attributeName === element.attributeName) == undefined)
                     target.setAttribute(element.attributeName, element.value);
-                if (element.value !== ((_a = lastAttr.find(e => e.attributeName === element.attributeName)) === null || _a === void 0 ? void 0 : _a.value))
+                if (element.value !== lastAttr.find(e => e.attributeName === element.attributeName)?.value)
                     target.setAttribute(element.attributeName, element.value);
             });
             //del
@@ -291,7 +302,7 @@ var VarInternal;
             const nowData = data.varList.find(element => element.key === newValue.tagName);
             if (nowData != undefined) {
                 const attributeValue = newValue.attributesList.filter(data => data.value === ``).map(data => data.attributeName);
-                const data = nowData.getData(...attributeValue);
+                const data = nowData.getUpdate(...attributeValue);
                 let returningData;
                 if (data instanceof parser.virtualDom)
                     returningData = detecter.subVar(data);
@@ -321,26 +332,26 @@ var VarInternal;
                     main.delList.push(target);
                     return;
                 }
-                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) !== (nowData === null || nowData === void 0 ? void 0 : nowData.tagName)) {
+                else if (lastData?.tagName !== nowData?.tagName) {
                     changer.change(parent, target, nowData);
                     return;
                 }
-                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === `text` && (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) === `text` && lastData.value != nowData.value) {
+                else if (lastData?.tagName === `text` && nowData?.tagName === `text` && lastData.value != nowData.value) {
                     changer.change(parent, target, nowData);
                     return;
                 }
-                else if ((lastData === null || lastData === void 0 ? void 0 : lastData.tagName) === (nowData === null || nowData === void 0 ? void 0 : nowData.tagName) && (lastData === null || lastData === void 0 ? void 0 : lastData.tagName) != `text`)
-                    changer.attrChange(target, lastData === null || lastData === void 0 ? void 0 : lastData.attributesList, nowData === null || nowData === void 0 ? void 0 : nowData.attributesList);
+                else if (lastData?.tagName === nowData?.tagName && lastData?.tagName != `text`)
+                    changer.attrChange(target, lastData?.attributesList, nowData?.attributesList);
             }
-            const maxData = (lastData === null || lastData === void 0 ? void 0 : lastData.childList.length) > (nowData === null || nowData === void 0 ? void 0 : nowData.childList.length) ? lastData === null || lastData === void 0 ? void 0 : lastData.childList : nowData === null || nowData === void 0 ? void 0 : nowData.childList;
+            const maxData = (lastData?.childList.length) > (nowData?.childList.length) ? lastData?.childList : nowData?.childList;
             if (maxData !== undefined) {
                 for (let i = 0; i < maxData.length; i++) {
                     const nowElement = html.getChild(parent)[index];
-                    detecter.detect((nowElement), lastData === null || lastData === void 0 ? void 0 : lastData.childList[i], nowData === null || nowData === void 0 ? void 0 : nowData.childList[i], i);
+                    detecter.detect((nowElement), lastData?.childList[i], nowData?.childList[i], i);
                 }
             }
         };
     })(detecter = VarInternal.detecter || (VarInternal.detecter = {}));
 })(VarInternal || (VarInternal = {}));
 VarInternal.main.init();
-VarInternal.main.detectStart(2000);
+VarInternal.main.detectStart(100);
