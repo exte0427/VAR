@@ -1,5 +1,5 @@
 var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function (t) {
+    __assign = Object.assign || function(t) {
         for (var s, i = 1, n = arguments.length; i < n; i++) {
             s = arguments[i];
             for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
@@ -11,7 +11,7 @@ var __assign = (this && this.__assign) || function () {
 };
 var Var;
 (function (Var) {
-    Var.dom = function (tagName, states) {
+    Var.make = function (tagName, states) {
         var childNodes = [];
         for (var _i = 2; _i < arguments.length; _i++) {
             childNodes[_i - 2] = arguments[_i];
@@ -252,40 +252,41 @@ var VarInternal;
     var detecter;
     (function (detecter) {
         detecter.excute = function (target) {
+            var myVar = target["var"];
             var _loop_1 = function (element) {
-                var myValue = target.attributesList.find(function (e) { return e.attributeName === element.key; });
+                var myValue = target.attributesList.find(function (e) { return e.attributeName === element; });
                 if (myValue === undefined)
-                    target["var"].state[element.key] = undefined;
+                    myVar.state[element] = undefined;
                 else
-                    target["var"].state[element.key] = myValue.value;
+                    myVar.state[element] = myValue.value;
             };
-            for (var _i = 0, _a = target["var"].state; _i < _a.length; _i++) {
+            for (var _i = 0, _a = Object.keys(target["var"].state); _i < _a.length; _i++) {
                 var element = _a[_i];
                 _loop_1(element);
             }
-            if (target["var"].update !== null)
-                target["var"].variable = target["var"].update(target["var"].variable, target["var"].state);
-            target.childList = target["var"].render(target["var"].variable, target["var"].state).childList;
-            target.childList.forEach(function (element) { return detecter.subVar(element); });
-            return target;
+            if (myVar.update !== null)
+                myVar.variable = myVar.update(myVar.variable, myVar.state);
+            var childList = myVar.render(myVar.variable, myVar.state).childList;
+            childList = childList.map(function (element) { return detecter.subVar(element); });
+            return new parser.virtualDom(target.tagName, target.attributesList, childList, target.value, target.key, myVar);
         };
         detecter.subVar = function (target) {
             if (target["var"].name === "") {
-                var myTemplate = templates.find(function (element) { return element.name === target.key; });
+                var myTemplate = templates.find(function (element) { return element.name === target.tagName; });
                 if (myTemplate === undefined) {
-                    target.childList.forEach(function (element) { return detecter.subVar(element); });
-                    return target;
+                    return new parser.virtualDom(target.tagName, target.attributesList, target.childList.map(function (element) { return detecter.subVar(element); }), target.value, target.key, target["var"]);
                 }
                 else {
-                    target["var"].name = myTemplate.name;
-                    target["var"].state = JSON.parse(myTemplate.state.map(function (element) { return ("\"".concat(element, "\":\"\"")); }).join(","));
-                    target["var"].variable = JSON.parse(myTemplate.variables.map(function (element) { return ("\"".concat(element, "\":\"\"")); }).join(","));
-                    target["var"].start = myTemplate.firFunc;
-                    target["var"].update = myTemplate.upFunc;
-                    target["var"].render = myTemplate.render;
-                    if (target["var"].start !== null)
-                        target["var"].start();
-                    return detecter.excute(target);
+                    var myVar = new Var.varForm();
+                    myVar.name = myTemplate.name;
+                    myVar.state = JSON.parse("{".concat(myTemplate.state.map(function (element) { return ("\"".concat(element, "\":\"\"")); }).join(","), "}"));
+                    myVar.variable = JSON.parse("{".concat(myTemplate.variables.map(function (element) { return ("\"".concat(element, "\":\"\"")); }).join(","), "}"));
+                    myVar.start = myTemplate.firFunc;
+                    myVar.update = myTemplate.upFunc;
+                    myVar.render = myTemplate.render;
+                    if (myVar.start !== null)
+                        myVar.variable = myVar.start();
+                    return detecter.excute(new parser.virtualDom(target.tagName, target.attributesList, target.childList, target.value, target.key, myVar));
                 }
             }
             else {
