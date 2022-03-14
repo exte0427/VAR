@@ -290,8 +290,7 @@ var VarInternal;
                     myVar.update = myTemplate.upFunc;
                     myVar.render = myTemplate.render;
                     if (myVar.start !== null) {
-                        myVar.state = detecter.getState(target);
-                        myVar.variable = myVar.start(myVar.variable, myVar.state);
+                        myVar.variable = myVar.start(myVar.variable, detecter.getState(target));
                     }
                     return detecter.excute(new parser.virtualDom(target.tagName, target.attributesList, target.childList, target.value, target.key, myVar));
                 }
