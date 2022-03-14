@@ -1,5 +1,5 @@
 var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
+    __assign = Object.assign || function (t) {
         for (var s, i = 1, n = arguments.length; i < n; i++) {
             s = arguments[i];
             for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
@@ -200,7 +200,7 @@ var VarInternal;
         main.detectStart = function (time) {
             setInterval(function () {
                 //set now data
-                main.nowData = detecter.subVar(__assign({}, main.firstData));
+                main.nowData = detecter.subVar(__assign({}, main.nowData));
                 detecter.detect(document, main.lastData, main.nowData, 1);
                 main.delList.map(function (element) { return changer.del(element); });
                 main.delList = [];
@@ -285,7 +285,7 @@ var VarInternal;
                     myVar.update = myTemplate.upFunc;
                     myVar.render = myTemplate.render;
                     if (myVar.start !== null)
-                        myVar.variable = myVar.start();
+                        myVar.variable = myVar.start(myVar.variable, myVar.state);
                     return detecter.excute(new parser.virtualDom(target.tagName, target.attributesList, target.childList, target.value, target.key, myVar));
                 }
             }
