@@ -1,5 +1,5 @@
 var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function (t) {
+    __assign = Object.assign || function(t) {
         for (var s, i = 1, n = arguments.length; i < n; i++) {
             s = arguments[i];
             for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
@@ -251,7 +251,7 @@ var VarInternal;
     })(changer = VarInternal.changer || (VarInternal.changer = {}));
     var detecter;
     (function (detecter) {
-        detecter.excute = function (target) {
+        detecter.getState = function (target) {
             var myVar = target["var"];
             var _loop_1 = function (element) {
                 var myValue = target.attributesList.find(function (e) { return e.attributeName === element; });
@@ -264,6 +264,11 @@ var VarInternal;
                 var element = _a[_i];
                 _loop_1(element);
             }
+            return myVar.state;
+        };
+        detecter.excute = function (target) {
+            var myVar = target["var"];
+            myVar.state = detecter.getState(target);
             if (myVar.update !== null)
                 myVar.variable = myVar.update(myVar.variable, myVar.state);
             var childList = myVar.render(myVar.variable, myVar.state).childList;
@@ -284,8 +289,10 @@ var VarInternal;
                     myVar.start = myTemplate.firFunc;
                     myVar.update = myTemplate.upFunc;
                     myVar.render = myTemplate.render;
-                    if (myVar.start !== null)
+                    if (myVar.start !== null) {
+                        myVar.state = detecter.getState(target);
                         myVar.variable = myVar.start(myVar.variable, myVar.state);
+                    }
                     return detecter.excute(new parser.virtualDom(target.tagName, target.attributesList, target.childList, target.value, target.key, myVar));
                 }
             }
